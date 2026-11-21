@@ -117,13 +117,24 @@ function toolStart(e) {
   state.toolEls.set(e.id, li);
 }
 
+// Expected detours the agent handles (shown amber, not as failures).
+const FALLBACK_CODES = new Set(["CALL_REQUIRED", "BANK_UNAVAILABLE", "APPROVAL_REQUIRED", "CHANNEL_UNSUPPORTED"]);
+const FALLBACK_LABEL = {
+  CALL_REQUIRED: "needs a call: guiding user",
+  BANK_UNAVAILABLE: "bank down: using fallback",
+  APPROVAL_REQUIRED: "waiting for your yes",
+  CHANNEL_UNSUPPORTED: "trying another channel",
+};
+
 function toolEnd(e) {
   const li = state.toolEls.get(e.id);
   if (!li) return;
   const st = li.querySelector(".status");
   const err = e.result && e.result.error;
-  st.className = `status ${e.ok ? "ok" : "err"}`;
-  st.textContent = e.ok ? `✓ ${e.ms}ms` : `✗ ${err || "error"}`;
+  const fallback = !e.ok && FALLBACK_CODES.has(err);
+  st.className = `status ${e.ok ? "ok" : fallback ? "run" : "err"}`;
+  st.textContent = e.ok ? `✓ ${e.ms}ms` : fallback ? `↪ ${FALLBACK_LABEL[err]}` : `✗ ${err || "error"}`;
+  if (fallback) li.classList.add("fallback");
   li.insertAdjacentHTML("beforeend", `<details><summary>result</summary><pre>${esc(short(e.result))}</pre></details>`);
 }
 

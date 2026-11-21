@@ -21,6 +21,7 @@ export interface Card {
   channels: BlockChannel[];
   helpline: string;
   sms?: { number: string; body: string };
+  appSteps?: string;
 }
 
 export interface Transaction {
@@ -115,6 +116,7 @@ export function toCard(p: CardProfile): Card {
     status: "active",
     channels,
     helpline: p.helpline ?? info.helpline,
+    appSteps: info.appSteps,
     sms: channels.includes("sms") && smsNumber ? { number: smsNumber, body: smsFormat.replace("{last4}", p.last4) } : undefined,
   };
 }
@@ -168,6 +170,7 @@ export class BankSimulator {
       helpline: c.helpline,
       tel: telLink(c.helpline),
       sms: c.sms ? { to: c.sms.number, body: c.sms.body } : undefined,
+      selfServe: c.appSteps ? `You can also block it yourself from another device: ${c.appSteps}` : undefined,
       callScript: `Hello, I'm calling to block my ${c.bankName} ${c.kind} card ending ${c.last4.split("").join(" ")}. It was lost or stolen. Please block it immediately and give me the complaint reference number. I'd also like to report any transactions after the loss as unauthorised.`,
     };
   }

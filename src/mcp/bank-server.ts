@@ -12,7 +12,8 @@ export function createBankServer(ctx: ServiceContext): McpServer {
     const o = bank.blockOptions(cardId);
     const id = `call-${o.cardId}`;
     if (!caseFile.actionsNeeded.some((a) => a.id === id)) {
-      caseFile.actionsNeeded.push({ id, cardId: o.cardId, title: `Call ${o.bank} to block ••${o.last4}`, detail: `Helpline ${o.helpline || "on the back of your card / bank website"}`, tel: o.tel || undefined, done: false });
+      const detail = [`Helpline ${o.helpline || "on the back of your card / bank website"} (24×7)`, o.selfServe ? `or ${o.selfServe.replace("You can also block it yourself from another device: ", "in the app: ")}` : ""].filter(Boolean).join(" · ");
+      caseFile.actionsNeeded.push({ id, cardId: o.cardId, title: `Call ${o.bank} to block ••${o.last4}`, detail, tel: o.tel || undefined, done: false });
     }
     return o;
   };
@@ -63,11 +64,20 @@ export function createBankServer(ctx: ServiceContext): McpServer {
         caseFile.cardActions.push({ cardId: r.cardId, bank: r.bank, last4: r.last4, method: "api", reference: r.reference, status: "frozen", at: r.frozenAt });
         return ok(r);
       } catch (e) {
-        if (e instanceof BankUnavailableError)
-          return fail("BANK_UNAVAILABLE", { bank: e.bank, message: e.message, suggestion: "Call send_sms_block for this card (if smsBlockAvailable) or guide the user to call." });
+        if (e instanceof BankUnavailableError) {
+          const o = bank.blockOptions(card_id);
+          return fail("BANK_UNAVAILABLE", {
+            bank: e.bank,
+            message: e.message,
+            smsBlockAvailable: Boolean(o.sms),
+            suggestion: o.sms
+              ? "Call send_sms_block for this card, unless the user's phone was also lost (SMS must come from the registered number); then guide them to call the helpline from another phone."
+              : "Guide the user to call the helpline (get_block_options).",
+          });
+        }
         if (e instanceof CallRequiredError) {
           const o = needCall(e.card.id);
-          return fail("CALL_REQUIRED", { message: e.message, helpline: o.helpline, tel: o.tel, callScript: o.callScript, suggestion: "Tell the user to call now (a call button is on their screen). Ask them for the reference number afterwards and call record_manual_block." });
+          return fail("CALL_REQUIRED", { message: e.message, helpline: o.helpline, tel: o.tel, callScript: o.callScript, selfServe: o.selfServe, suggestion: "Tell the user to call now (a call button is on their screen). Ask them for the reference number afterwards and call record_manual_block." });
         }
         return known(e) ?? Promise.reject(e);
       }

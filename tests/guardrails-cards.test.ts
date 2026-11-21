@@ -83,8 +83,10 @@ describe("cards: call-only banks, replacements, card watch", () => {
   it("freeze on a call-only card → CALL_REQUIRED + action needed; record_manual_block completes it", async () => {
     const { hub, ctx } = await makeHub();
     const r = parse((await hub.execute("freeze_card", { card_id: "7710" }, "f")).content);
-    expect(r).toMatchObject({ error: "CALL_REQUIRED", helpline: "1800 1080", tel: "tel:18001080" });
-    expect(ctx.caseFile.actionsNeeded).toEqual([expect.objectContaining({ id: "call-icici-cc-7710", done: false, tel: "tel:18001080" })]);
+    expect(r).toMatchObject({ error: "CALL_REQUIRED", helpline: "1800 1080", tel: "tel:18001080", selfServe: expect.stringContaining("iMobile") });
+    const down = parse((await hub.execute("freeze_card", { card_id: "1093" }, "s")).content);
+    expect(down).toMatchObject({ error: "BANK_UNAVAILABLE", smsBlockAvailable: true, suggestion: expect.stringContaining("phone was also lost") });
+    expect(ctx.caseFile.actionsNeeded).toEqual([expect.objectContaining({ id: "call-icici-cc-7710", done: false, tel: "tel:18001080", detail: expect.stringContaining("in the app: iMobile Pay") })]);
     const m = parse((await hub.execute("record_manual_block", { card_id: "7710", method: "call", reference: "ICI-77812" }, "m")).content);
     expect(m.status).toBe("blocked");
     expect(ctx.caseFile.actionsNeeded[0].done).toBe(true);

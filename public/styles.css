@@ -132,3 +132,5 @@ dialog.settings::backdrop { background: rgba(3, 6, 15, 0.7); }
 .card-row { display: grid; grid-template-columns: 1.1fr 0.9fr 0.9fr 0.7fr 1.3fr 1fr auto; gap: 6px; align-items: center; }
 @media (max-width: 700px) { .card-row { grid-template-columns: 1fr 1fr; } }
 .error { color: var(--err); font-size: 13px; min-height: 1em; margin: 0; }
+
+.act.fallback { border-left-color: var(--warn); }
