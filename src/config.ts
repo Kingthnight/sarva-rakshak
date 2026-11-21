@@ -43,7 +43,7 @@ export function loadConfig(env: Env = process.env): AppConfig {
       customerSecret: env.AGORA_CUSTOMER_SECRET ?? "",
       asrLanguage: env.ASR_LANGUAGE || "en-IN",
       asrVendor: env.ASR_VENDOR === "ares" ? "ares" : "deepgram",
-      asrKeyterms: env.ASR_KEYTERMS === "1",
+      asrKeyterms: env.ASR_KEYTERMS !== "0",
     },
     murf: {
       apiKey: env.MURF_API_KEY ?? "",

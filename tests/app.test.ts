@@ -147,7 +147,9 @@ describe("Agora Conversational AI integration (mocked REST)", () => {
       api_key: "s3cret",
     });
     expect(p.properties.tts).toMatchObject({ vendor: "murf", params: { api_key: "murf-key", model: "FALCON", voiceId: "en-IN-isha" } });
-    expect(p.properties.asr).toMatchObject({ vendor: "deepgram", credential_mode: "managed", language: "en-IN", params: { model: "nova-3" } });
+    expect(p.properties.asr).toMatchObject({ vendor: "deepgram", credential_mode: "managed", language: "en-IN", params: { model: "nova-3", keyterm: expect.stringContaining("Majestic%20") } });
+    expect(p.properties.turn_detection.config.end_of_speech.mode).toBe("semantic");
+    expect((buildJoinPayload(testConfig({ ASR_KEYTERMS: "0" }), { sessionId: "a", channel: "c", userUid: 2, token: "" }).properties.asr as any).params.keyterm).toBeUndefined();
     expect(buildJoinPayload(testConfig({ ASR_VENDOR: "ares" }), { sessionId: "a", channel: "c", userUid: 2, token: "" }).properties.asr).toEqual({ vendor: "ares", language: "en-IN" });
   });
 

@@ -24,8 +24,17 @@ export interface JoinParams {
   token: string;
 }
 
-/** Words Indian-English ASR tends to mangle in this domain (opt-in boosting via ASR_KEYTERMS=1). */
-export const ASR_KEYTERMS = ["Sarva", "Majestic", "Aadhaar", "PAN card", "HDFC", "SBI", "ICICI", "Axis", "Kotak", "RuPay", "UPI", "Koramangala", "Indiranagar", "Whitefield"];
+/** Words Indian-English ASR tends to mangle in this domain (Deepgram Nova-3 keyterm boosting). */
+export const ASR_KEYTERMS = ["Sarva", "Majestic", "Aadhaar", "HDFC", "SBI", "ICICI", "Axis", "Kotak", "RuPay", "Koramangala", "Indiranagar"];
+
+/** Wait for a semantically complete sentence (not just a pause) before replying, so sentences aren't split mid-thought. */
+export const TURN_DETECTION = {
+  mode: "default",
+  config: {
+    start_of_speech: { mode: "vad", vad_config: { interrupt_duration_ms: 200, prefix_padding_ms: 800 } },
+    end_of_speech: { mode: "semantic", semantic_config: { silence_duration_ms: 480, max_wait_ms: 3000 } },
+  },
+};
 
 /** Speech-to-text: Deepgram Nova-3 (Indian English, Agora-managed credentials) by default; Agora ARES as fallback. */
 export function asrConfig(cfg: AppConfig) {
@@ -39,7 +48,8 @@ export function asrConfig(cfg: AppConfig) {
       model: "nova-3",
       language: cfg.agora.asrLanguage,
       smart_format: true,
-      ...(cfg.agora.asrKeyterms ? { keyterm: ASR_KEYTERMS } : {}),
+      // Agora documents keyterm as a URL-encoded, space-separated string.
+      ...(cfg.agora.asrKeyterms ? { keyterm: ASR_KEYTERMS.join("%20") } : {}),
     },
   };
 }
@@ -56,6 +66,7 @@ export function buildJoinPayload(cfg: AppConfig, p: JoinParams) {
       enable_string_uid: false,
       idle_timeout: 120,
       asr: asrConfig(cfg),
+      turn_detection: TURN_DETECTION,
       llm: {
         vendor: "custom",
         style: "openai",
