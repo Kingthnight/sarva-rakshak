@@ -24,6 +24,9 @@ describe("ToolHub + MCP servers", () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
+        "bank_call_verify",
+        "call_bank_for_user",
+        "start_call_copilot",
         "find_nearest_police_station",
         "file_lost_report",
         "freeze_card",

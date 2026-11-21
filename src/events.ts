@@ -13,6 +13,7 @@ export type AgentEvent =
   | { type: "case"; summary: unknown }
   | { type: "guardrail"; message: string; kinds: string[] }
   | { type: "card_alert"; cardId: string; last4: string; bank: string; amountInr: number; merchant: string; outcome: "declined" | "approved"; spoken: boolean }
+  | { type: "bank_call"; call: import("./services/bank-call.js").BankCall }
   | { type: "error"; message: string };
 
 export type StampedEvent = AgentEvent & { at: string; seq: number };

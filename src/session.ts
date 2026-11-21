@@ -9,6 +9,7 @@ import { SessionEvents } from "./events.js";
 import { defaultIdGen, type ServiceContext } from "./mcp/context.js";
 import { ToolHub } from "./mcp/hub.js";
 import { BankSimulator } from "./services/bank.js";
+import { BankCallSimulator } from "./services/bank-call.js";
 import type { EmailSender } from "./services/email.js";
 import type { GeoService } from "./services/geo.js";
 
@@ -22,6 +23,8 @@ export interface SessionDeps {
   bankOutages: string[];
   now?: () => Date;
   idGen?: (prefix: string) => string;
+  /** Delay between simulated call steps (ms); 0 in tests. */
+  callStepDelayMs?: number;
 }
 
 /** Speaks a line into the live call (Agora `speak` API); injected by the app. */
@@ -41,6 +44,7 @@ export class Session {
     readonly gate: ApprovalGate,
     readonly events: SessionEvents,
     readonly bank: BankSimulator,
+    readonly calls: BankCallSimulator,
     readonly profile: Profile,
     private readonly orchestrator: Orchestrator,
     readonly system: string,
@@ -53,12 +57,13 @@ export class Session {
     if (!profile.email && deps.userEmail) profile.email = deps.userEmail;
     const caseFile = newCaseFile({ caseId: idGen("CASE"), profile, now: now() });
     const bank = new BankSimulator({ now, outages: deps.bankOutages, idGen, cards: profile.cards });
-    const ctx: ServiceContext = { caseFile, bank, geo: deps.geo, email: deps.email, now, idGen };
     const gate = new ApprovalGate();
     const events = new SessionEvents();
+    const calls = new BankCallSimulator({ now, idGen, stepDelayMs: deps.callStepDelayMs, onUpdate: (call) => events.emit({ type: "bank_call", call }) });
+    const ctx: ServiceContext = { caseFile, bank, geo: deps.geo, email: deps.email, now, idGen, calls };
     const hub = await ToolHub.create(ctx, gate, events);
     const system = buildSystemPrompt(caseFile, bank.listCards());
-    return new Session(id, caseFile, hub, gate, events, bank, profile, deps.orchestrator, system);
+    return new Session(id, caseFile, hub, gate, events, bank, calls, profile, deps.orchestrator, system);
   }
 
   /** Serialises turns: a new utterance waits for the previous turn to finish. */
@@ -97,6 +102,14 @@ export class Session {
     this.events.emit({ type: "card_alert", cardId: card.id, last4: card.last4, bank: card.bankName, amountInr: t.amountInr, merchant: t.merchant, outcome, spoken });
     this.events.emit({ type: "case", summary: summarise(this.caseFile) });
     return { transaction: t, outcome, spoken, spokenText };
+  }
+
+  /** User tapped "I'll call myself": hang up Sarva's call and tell the agent. */
+  switchToCopilot(callId: string) {
+    const call = this.calls.cancel(callId);
+    if (!call) throw new Error("call not found");
+    this.pendingAlerts.push(`[System note, not the user: the user tapped "I'll call myself" for the ${call.bank} card ending ${call.last4} (card id ${call.cardId}). Call start_call_copilot for it, guide them briefly, and record_manual_block when they tell you the reference.]`);
+    return call;
   }
 
   async close(): Promise<void> {

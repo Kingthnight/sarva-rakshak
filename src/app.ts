@@ -89,6 +89,20 @@ export function createApp({ config, store, profiles, fetchFn = fetch }: AppDeps)
     }
   });
 
+  // "I'll call myself": stop Sarva's simulated bank call and switch to co-pilot.
+  app.post("/api/sessions/:id/calls/:callId/self", (req, res) => {
+    const s = store.get(req.params.id);
+    if (!s) {
+      res.status(404).json({ error: "session not found" });
+      return;
+    }
+    try {
+      res.json({ call: s.switchToCopilot(req.params.callId) });
+    } catch (e) {
+      res.status(404).json({ error: (e as Error).message });
+    }
+  });
+
   // Create a session (text mode works without Agora).
   app.post("/api/sessions", async (_req, res) => {
     const s = await store.create();

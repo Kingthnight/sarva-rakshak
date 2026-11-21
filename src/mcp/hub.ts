@@ -10,6 +10,13 @@ import { createCivicServer } from "./civic-server.js";
 import { createNotifyServer } from "./notify-server.js";
 import type { ServiceContext } from "./context.js";
 
+/** Hides personal answers (e.g. date of birth) from the activity feed. */
+export function maskForDisplay(input: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(input)) out[k] = /dob|date_of_birth|birth/i.test(k) ? "••/••/••••" : v;
+  return out;
+}
+
 export interface ToolOutcome {
   content: string;
   isError: boolean;
@@ -132,7 +139,7 @@ export class ToolHub {
     const input = (rawInput && typeof rawInput === "object" ? { ...(rawInput as Record<string, unknown>) } : {}) as Record<string, unknown>;
     const server = this.serverOf(name);
     const started = Date.now();
-    this.events.emit({ type: "tool_start", id: callId, name, server, input });
+    this.events.emit({ type: "tool_start", id: callId, name, server, input: maskForDisplay(input) });
 
     let outcome: ToolOutcome;
     try {

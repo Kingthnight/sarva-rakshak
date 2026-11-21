@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BankUnavailableError, CallRequiredError, ChannelUnsupportedError, NotFoundError } from "../services/bank.js";
-import { fail, ok, type ServiceContext } from "./context.js";
+import { callsOf, fail, ok, type ServiceContext } from "./context.js";
 
 export function createBankServer(ctx: ServiceContext): McpServer {
   const server = new McpServer({ name: "sarva-bank", version: "0.2.0" });
@@ -120,6 +120,88 @@ export function createBankServer(ctx: ServiceContext): McpServer {
         caseFile.cardActions.push({ cardId: r.cardId, bank: r.bank, last4: r.last4, method, reference, status: "blocked", at: r.recordedAt });
         caseFile.actionsNeeded.filter((a) => a.cardId === r.cardId).forEach((a) => (a.done = true));
         return ok(r);
+      } catch (e) {
+        return known(e) ?? Promise.reject(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "call_bank_for_user",
+    {
+      title: "Call the bank for the user",
+      description:
+        "Sarva phones the bank's helpline on the user's behalf (simulated call in this prototype), works through the phone menu and holds for an agent. It returns when the bank asks to verify the cardholder (date of birth). Then ask the user for their date of birth and call bank_call_verify. Use for CALL_REQUIRED cards, or when SMS isn't possible. Protective action, so no approval needed.",
+      inputSchema: { card_id: z.string() },
+    },
+    async ({ card_id }) => {
+      try {
+        const card = bank.getCard(card_id);
+        if (card.status === "blocked" || card.status === "frozen") return ok({ alreadyBlocked: true, status: card.status, last4: card.last4 });
+        const call = await callsOf(ctx).start(card);
+        const id = `call-${card.id}`;
+        const action = caseFile.actionsNeeded.find((a) => a.id === id);
+        if (action) action.detail = `Sarva is on the call with ${card.bankName} (call ${call.callId})`;
+        return ok({
+          simulated: true,
+          callId: call.callId,
+          state: call.state,
+          bankSays: call.steps.at(-1)?.label,
+          next: call.state === "verifying" ? "Ask the user for their date of birth (day, month, year), then call bank_call_verify. Never ask for OTP, PIN or CVV." : undefined,
+        });
+      } catch (e) {
+        return known(e) ?? fail("CALL_FAILED", { message: (e as Error).message });
+      }
+    },
+  );
+
+  server.registerTool(
+    "bank_call_verify",
+    {
+      title: "Answer the bank's verification on the call",
+      description: "Pass the cardholder's date of birth to the bank on the ongoing call. On success the bank blocks the card and gives a reference, which is saved automatically.",
+      inputSchema: { call_id: z.string(), date_of_birth: z.string().min(4).max(40) },
+    },
+    async ({ call_id, date_of_birth }) => {
+      try {
+        const call = await callsOf(ctx).verify(call_id, date_of_birth);
+        const r = bank.recordManualBlock(call.cardId, "call", call.reference!);
+        caseFile.cardActions.push({ cardId: r.cardId, bank: r.bank, last4: r.last4, method: "call", reference: call.reference!, status: "blocked", at: r.recordedAt });
+        caseFile.actionsNeeded.filter((a) => a.cardId === r.cardId).forEach((a) => {
+          a.done = true;
+          a.title = `${r.bank} ••${r.last4} blocked by Sarva's call`;
+          a.detail = `Reference ${call.reference}`;
+        });
+        return ok({ simulated: true, blocked: true, last4: r.last4, bank: r.bank, reference: call.reference });
+      } catch (e) {
+        return fail("VERIFICATION_FAILED", { message: (e as Error).message });
+      }
+    },
+  );
+
+  server.registerTool(
+    "start_call_copilot",
+    {
+      title: "Co-pilot the user's own call",
+      description: "The user prefers to call the bank themselves: show a live guide (call button, what to say, typical phone-menu path). When they read out the reference number, call record_manual_block.",
+      inputSchema: { card_id: z.string() },
+    },
+    async ({ card_id }) => {
+      try {
+        const o = needCall(card_id);
+        const running = callsOf(ctx).forCard(o.cardId);
+        if (running) callsOf(ctx).cancel(running.callId);
+        return ok({
+          mode: "copilot",
+          bank: o.bank,
+          last4: o.last4,
+          helpline: o.helpline,
+          tel: o.tel,
+          menuHint: "Menus vary. Usually: choose language → Cards → Report lost or stolen card. Say 'agent' or press 0 to reach a person.",
+          say: `Please block my ${o.bank} card ending ${o.last4.split("").join(" ")}. It was lost.`,
+          never: "Never share OTP, PIN or CVV on the call. Banks don't need them to block a card.",
+          selfServe: o.selfServe,
+        });
       } catch (e) {
         return known(e) ?? Promise.reject(e);
       }

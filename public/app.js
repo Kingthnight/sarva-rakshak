@@ -80,6 +80,44 @@ function addAlert(e) {
   $("alerts").prepend(el);
 }
 
+const calls = new Map();
+function renderCall(call) {
+  calls.set(call.callId, call);
+  $("callsBox").hidden = false;
+  let el = document.querySelector(`[data-call="${call.callId}"]`);
+  if (!el) {
+    el = document.createElement("div");
+    el.dataset.call = call.callId;
+    $("calls").prepend(el);
+  }
+  const live = !["completed", "cancelled", "failed"].includes(call.state);
+  const waiting = call.state === "verifying";
+  const icon = { done: "✓", active: "⏳", waiting_user: "🗣" };
+  el.className = `call-card ${call.state}`;
+  el.innerHTML = `
+    <div class="call-head"><span>${live ? "📞" : call.state === "completed" ? "✅" : "↩"} <b>${esc(call.bank)}</b> · ${esc(call.helpline)} · card ••${esc(call.last4)}</span><span class="badge">simulated call</span></div>
+    <ol class="call-steps">${call.steps.map((s) => `<li class="${s.status}"><span>${icon[s.status]}</span>${esc(s.label)}</li>`).join("")}</ol>
+    ${waiting ? `<div class="call-ask">🗣 The bank needs your <b>date of birth</b>. Just say it (Sarva never asks for OTP, PIN or CVV).</div>` : ""}
+    ${live ? `<button class="ghost self" data-self="${call.callId}">I'll call myself</button>` : ""}`;
+  const btn = el.querySelector("[data-self]");
+  if (btn) btn.onclick = () => api(`/api/sessions/${state.sessionId}/calls/${call.callId}/self`, {}).catch((e) => logEvent(`⚠️ ${e.message}`));
+}
+
+function renderCopilot(r) {
+  $("callsBox").hidden = false;
+  const el = document.createElement("div");
+  el.className = "call-card copilot";
+  el.innerHTML = `
+    <div class="call-head"><span>🎧 <b>Co-pilot</b>: your call to ${esc(r.bank)} (••${esc(r.last4)})</span>${r.tel ? `<a class="call" href="${esc(r.tel)}">Call ${esc(r.helpline)}</a>` : ""}</div>
+    <div class="copilot-body">
+      <div><b>Menu:</b> ${esc(r.menuHint)}</div>
+      <div><b>Say:</b> "${esc(r.say)}"</div>
+      <div class="muted">${esc(r.never)}</div>
+      <div>🎙 When they give you a reference number, just say it and Sarva will save it.</div>
+    </div>`;
+  $("calls").prepend(el);
+}
+
 function renderCase(s) {
   renderActions(s.actionsNeeded);
   refreshCards().catch(() => {});
@@ -118,15 +156,17 @@ function toolStart(e) {
 }
 
 // Expected detours the agent handles (shown amber, not as failures).
-const FALLBACK_CODES = new Set(["CALL_REQUIRED", "BANK_UNAVAILABLE", "APPROVAL_REQUIRED", "CHANNEL_UNSUPPORTED"]);
+const FALLBACK_CODES = new Set(["CALL_REQUIRED", "BANK_UNAVAILABLE", "APPROVAL_REQUIRED", "CHANNEL_UNSUPPORTED", "VERIFICATION_FAILED"]);
 const FALLBACK_LABEL = {
   CALL_REQUIRED: "needs a call: guiding user",
   BANK_UNAVAILABLE: "bank down: using fallback",
   APPROVAL_REQUIRED: "waiting for your yes",
   CHANNEL_UNSUPPORTED: "trying another channel",
+  VERIFICATION_FAILED: "bank asked again",
 };
 
 function toolEnd(e) {
+  if (e.name === "start_call_copilot" && e.ok) renderCopilot(e.result);
   const li = state.toolEls.get(e.id);
   if (!li) return;
   const st = li.querySelector(".status");
@@ -158,6 +198,7 @@ function onEvent(e) {
     case "case": return renderCase(e.summary);
     case "status": return logEvent(`ℹ️ ${e.message}`);
     case "card_alert": return addAlert(e);
+    case "bank_call": return renderCall(e.call);
     case "guardrail": {
       const li = document.createElement("li");
       li.className = "act guard";

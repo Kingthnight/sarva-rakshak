@@ -147,6 +147,10 @@ export class BankSimulator {
     }
   }
 
+  getCard(cardId: string): Card {
+    return { ...this.card(cardId) };
+  }
+
   listCards(): Card[] {
     return this.cards.map((c) => ({ ...c }));
   }

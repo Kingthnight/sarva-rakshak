@@ -134,3 +134,18 @@ dialog.settings::backdrop { background: rgba(3, 6, 15, 0.7); }
 .error { color: var(--err); font-size: 13px; min-height: 1em; margin: 0; }
 
 .act.fallback { border-left-color: var(--warn); }
+
+.call-card { border: 1px solid #1f4d6b; background: #0f2233; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; font-size: 13px; }
+.call-card.completed { border-color: #1f5c48; background: #0f241d; }
+.call-card.cancelled { opacity: 0.7; }
+.call-card.copilot { border-color: #5b4a8a; background: #1a1630; }
+.call-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.call-head a.call { background: var(--ok); color: #052e1f; text-decoration: none; font-weight: 700; padding: 5px 10px; border-radius: 8px; white-space: nowrap; }
+.call-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.call-steps li { display: flex; gap: 8px; color: var(--muted); }
+.call-steps li.active { color: var(--warn); }
+.call-steps li.waiting_user { color: var(--accent-2); font-weight: 600; }
+.call-steps li span { width: 16px; text-align: center; }
+.call-ask { margin-top: 8px; padding: 8px; border-radius: 8px; background: #2a1d10; color: var(--accent-2); }
+.call-card .self { margin-top: 8px; }
+.copilot-body { display: flex; flex-direction: column; gap: 5px; line-height: 1.45; }
