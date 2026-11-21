@@ -230,10 +230,17 @@ async function startVoice() {
     const agentLoud = vols.some((v) => String(v.uid) === String(info.agentUid ?? "1001") && v.level > 5);
     $("callBtn").classList.toggle("speaking", agentLoud);
   });
+  // Local mic level meter (also shows whether Sarva can hear you).
+  state.meter = setInterval(() => {
+    const lvl = state.mic && !state.muted ? Math.min(1, state.mic.getVolumeLevel() * 1.6) : 0;
+    $("micLevel").style.width = `${Math.round(lvl * 100)}%`;
+  }, 120);
   await client.join(info.appId, info.channel, info.token, info.uid);
   const mic = await AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true, AGC: true });
   await client.publish([mic]);
-  Object.assign(state, { client, mic, live: true });
+  Object.assign(state, { client, mic, live: true, muted: false });
+  renderMute();
+  $("callControls").hidden = false;
   $("callBtn").classList.add("live");
   $("callLabel").textContent = "End call";
   $("voiceState").textContent = `Live on ${info.channel}`;
@@ -245,11 +252,35 @@ async function stopVoice() {
     await state.client?.leave();
   } finally {
     await api(`/api/sessions/${state.sessionId}/voice/stop`, {}).catch(() => {});
-    Object.assign(state, { client: null, mic: null, live: false });
+    clearInterval(state.meter);
+    Object.assign(state, { client: null, mic: null, live: false, muted: false });
+    $("callControls").hidden = true;
+    $("mutedBanner").hidden = true;
     $("callBtn").classList.remove("live", "speaking");
     $("callLabel").textContent = "Start emergency call";
     $("voiceState").textContent = "Not connected";
   }
+}
+
+// ---------- Mute / unmute ----------
+function renderMute() {
+  const m = Boolean(state.muted);
+  const btn = $("muteBtn");
+  btn.classList.toggle("on", m);
+  btn.setAttribute("aria-pressed", String(m));
+  btn.querySelector(".mute-icon").textContent = m ? "🔇" : "🎙️";
+  $("muteLabel").textContent = m ? "Unmute" : "Mute";
+  $("mutedBanner").hidden = !m;
+  if (state.live) $("voiceState").textContent = m ? "Muted: Sarva can't hear you" : "Live: Sarva is listening";
+}
+
+async function toggleMute() {
+  if (!state.live || !state.mic) return;
+  state.muted = !state.muted;
+  // setMuted keeps the track published (no reconnect, instant) but sends silence.
+  await state.mic.setMuted(state.muted);
+  renderMute();
+  logEvent(state.muted ? "🔇 You muted your microphone" : "🎙️ You unmuted your microphone");
 }
 
 // ---------- Settings ----------
@@ -354,6 +385,14 @@ async function init() {
   $("userPill").textContent = `👤 ${s.user}`;
   refreshCards().catch(() => {});
   $("settingsBtn").onclick = () => openSettings().catch((e) => alert(e.message));
+  $("muteBtn").onclick = () => toggleMute().catch((e) => logEvent(`⚠️ ${e.message}`));
+  document.addEventListener("keydown", (ev) => {
+    const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName) || $("settings").open;
+    if (!typing && (ev.key === "m" || ev.key === "M") && !ev.metaKey && !ev.ctrlKey && !ev.altKey) {
+      ev.preventDefault();
+      toggleMute().catch(() => {});
+    }
+  });
   $("closeSettings").onclick = () => $("settings").close();
   $("addCard").onclick = () => $("cardRows").appendChild(cardRow({ bank: "HDFC", kind: "debit" }));
   $("settingsForm").onsubmit = saveSettings;

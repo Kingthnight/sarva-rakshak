@@ -31,6 +31,15 @@
           <span id="callLabel">Start emergency call</span>
         </button>
         <div id="voiceState" class="voice-state">Not connected</div>
+        <div id="callControls" class="call-controls" hidden>
+          <button id="muteBtn" class="mute-btn" aria-pressed="false" title="Mute / unmute your microphone (M)">
+            <span class="mute-icon" aria-hidden="true">🎙️</span>
+            <span id="muteLabel">Mute</span>
+            <kbd>M</kbd>
+          </button>
+          <div class="mic-meter" title="Your microphone level" aria-hidden="true"><span id="micLevel"></span></div>
+        </div>
+        <div id="mutedBanner" class="muted-banner" hidden>🔇 You're muted. Sarva can't hear you. Press <kbd>M</kbd> or tap Unmute to talk.</div>
       </div>
       <h2>Conversation</h2>
       <div id="transcript" class="transcript" aria-live="polite">

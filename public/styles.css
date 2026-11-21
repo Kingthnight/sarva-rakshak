@@ -149,3 +149,14 @@ dialog.settings::backdrop { background: rgba(3, 6, 15, 0.7); }
 .call-ask { margin-top: 8px; padding: 8px; border-radius: 8px; background: #2a1d10; color: var(--accent-2); }
 .call-card .self { margin-top: 8px; }
 .copilot-body { display: flex; flex-direction: column; gap: 5px; line-height: 1.45; }
+
+.call-controls { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+.mute-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); font-weight: 600; font-size: 14px; cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.1s; }
+.mute-btn:hover { border-color: #3a4a74; }
+.mute-btn:active { transform: scale(0.97); }
+.mute-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.mute-btn.on { background: #3a1414; border-color: var(--err); color: #fecaca; }
+.mute-btn kbd, .muted-banner kbd { font-family: ui-monospace, Menlo, monospace; font-size: 11px; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line); background: #0e1528; color: var(--muted); }
+.mic-meter { width: 90px; height: 8px; border-radius: 999px; background: #0e1528; border: 1px solid var(--line); overflow: hidden; }
+.mic-meter span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--ok), var(--accent-2)); transition: width 0.1s linear; }
+.muted-banner { margin-top: 6px; font-size: 13px; color: #fecaca; background: #2a1212; border: 1px solid #5b1d1d; padding: 7px 12px; border-radius: 10px; text-align: center; }
