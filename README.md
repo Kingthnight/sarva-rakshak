@@ -18,6 +18,22 @@ Built for **Build with Agora BLR**, Track 3: *AI Agents That Get Things Done*.
 | **Approve** | Disputes and police reports need your spoken **"yes"**. This is **enforced on the server**: the model can't approve itself. |
 | **Confirm & follow up** | Sarva reads back reference numbers and emails a case PDF, the report PDF and an `.ics` file of reminders. |
 
+## Settings, card monitoring and guardrails
+- **Settings (⚙️ in the UI):** name, email, phone, city, emergency contact, the documents you usually carry, and your **cards** (bank, type, last 4, nickname, and how each can be blocked: app, SMS or phone call only). Saved to `data/profile.json`, which git ignores. Each new session uses the saved profile.
+- **How a card gets blocked:**
+  1. **App/API freeze**, instant.
+  2. **SMS block** if the bank's API is down.
+  3. **Phone call only** for some banks. The agent can't phone the bank itself, so it shows a **Call now** button (`tel:` link) with the helpline and a one-line script. Afterwards it records the reference you were given with `record_manual_block`.
+- **One lost card vs a whole wallet:** for a single card, the agent asks which one if unclear, acts only on that card, checks its recent transactions and offers a replacement (approval needed). For a wallet, it acts on all saved cards and documents.
+- **Card watch (monitoring):** new charge attempts appear live. Attempts on frozen cards show as **declined** ("the freeze worked"). A charge on an active card raises an alert, and the agent says it out loud mid-call through Agora's `speak` API, then offers to freeze. Demo it with the **Simulate fraud attempt** button.
+- **Guardrails:**
+  - Full card numbers, CVV, PIN, OTP and Aadhaar numbers are **redacted on the server before the AI sees them**, and the agent warns you.
+  - The agent **can never unfreeze** a card.
+  - It acts only on saved cards.
+  - Disputes, police reports and replacements need your spoken "yes", enforced on the server.
+  - The public tunnel exposes **only** the Agora LLM endpoint; UI, profile and controls are local-only.
+- **Speech recognition:** Deepgram Nova-3 tuned for Indian English (`en-IN`), via Agora's managed credentials. The prompt reads misheard Bengaluru landmarks by how they sound.
+
 ## Architecture
 ```
 Browser ── Agora RTC ──▶ Agora Conversational AI Engine
@@ -44,7 +60,7 @@ Express (src/app.ts) ── Orchestrator (Claude streaming tool loop + approval 
 ```bash
 npm install
 cp .env.example .env              # fill in keys (see REQUIREMENTS.md §7)
-npm test                          # 48 tests, all offline, costs nothing
+npm test                          # 63 tests, all offline, costs nothing
 npm run smoke                     # free real-API checks: Agora, Murf, OpenStreetMap
 npm run chat -- --demo            # full workflow in text mode with real Claude (no voice minutes)
 npm run dev                       # http://localhost:8790 (type in the box; text mode)

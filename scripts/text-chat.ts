@@ -12,12 +12,14 @@ import { summarise } from "../src/domain/case.js";
 import { DryRunEmailSender, ResendEmailSender } from "../src/services/email.js";
 import { GeoService } from "../src/services/geo.js";
 import { SessionStore } from "../src/session.js";
+import { ProfileStore } from "../src/domain/profile.js";
 
 const cfg = loadConfig();
 const store = new SessionStore({
   orchestrator: new Orchestrator(new AnthropicLlm({ apiKey: cfg.claude.apiKey, model: cfg.claude.model, effort: cfg.claude.effort })),
   geo: new GeoService(fetch, cfg.geoMode),
   email: cfg.email.mode === "live" ? new ResendEmailSender(cfg.email.resendApiKey, cfg.email.from) : new DryRunEmailSender(),
+  profile: () => new ProfileStore("data/profile.json", cfg.email.demoUserEmail).get(),
   userEmail: cfg.email.demoUserEmail,
   bankOutages: cfg.bankOutages,
 });

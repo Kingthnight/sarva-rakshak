@@ -19,7 +19,9 @@ export function caseEmailHtml(c: CaseFile): string {
   ${block("Suspicious transactions", s.flagged)}
   ${block("Disputes filed", s.disputes)}
   ${s.report ? block("Police report", [`Reference ${s.report}`, "PDF attached; carry a printed copy if the station asks."]) : ""}
-  ${block("Do these now", urgent)}
+  ${block("Still to do", [...c.actionsNeeded.filter((a) => !a.done).map((a) => `${a.title} (${a.detail})`), ...urgent])}
+  ${block("Replacement cards", s.replacements)}
+  ${block("Card watch", s.cardAlerts)}
   ${block("Reissue guides", c.reissue.map((g) => `${g.title}: ${g.portal}`))}
   ${block("Reminders (calendar invite attached)", s.reminders)}
   <p style="color:#666;font-size:12px;margin-top:24px">Bank and police integrations in this hackathon prototype are simulated. Emergency: 112 · Cyber fraud: 1930.</p>

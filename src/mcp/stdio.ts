@@ -17,6 +17,7 @@ const which = process.argv[2];
 const cfg = loadConfig();
 const ctx: ServiceContext = {
   caseFile: newCaseFile({ caseId: defaultIdGen("CASE"), email: cfg.email.demoUserEmail }),
+  // cards come from the default profile; edit data/profile.json via the UI for your own
   bank: new BankSimulator({ outages: cfg.bankOutages }),
   geo: new GeoService(fetch, cfg.geoMode),
   email: cfg.email.mode === "live" ? new ResendEmailSender(cfg.email.resendApiKey, cfg.email.from) : new DryRunEmailSender(),

@@ -116,7 +116,7 @@ describe("session + text API", () => {
     const t = await request(app).post(`/api/sessions/${s.body.sessionId}/text`).send({ text: "freeze my hdfc card" });
     expect(t.body).toMatchObject({ text: "On it. Frozen.", toolCalls: 1 });
     const c = await request(app).get(`/api/sessions/${s.body.sessionId}/case`);
-    expect(c.body.cards[0]).toMatch(/HDFC ••4821: frozen via api/);
+    expect(c.body.cards[0]).toMatch(/HDFC Bank ••4821: frozen via api/);
     expect((await request(app).post(`/api/sessions/${s.body.sessionId}/text`).send({})).status).toBe(400);
   });
 
@@ -147,7 +147,8 @@ describe("Agora Conversational AI integration (mocked REST)", () => {
       api_key: "s3cret",
     });
     expect(p.properties.tts).toMatchObject({ vendor: "murf", params: { api_key: "murf-key", model: "FALCON", voiceId: "en-IN-isha" } });
-    expect(p.properties.asr.vendor).toBe("ares");
+    expect(p.properties.asr).toMatchObject({ vendor: "deepgram", credential_mode: "managed", language: "en-IN", params: { model: "nova-3" } });
+    expect(buildJoinPayload(testConfig({ ASR_VENDOR: "ares" }), { sessionId: "a", channel: "c", userUid: 2, token: "" }).properties.asr).toEqual({ vendor: "ares", language: "en-IN" });
   });
 
   it("uses Basic auth with the customer key/secret, and tokens only when a certificate exists", () => {

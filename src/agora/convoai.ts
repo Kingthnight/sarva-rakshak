@@ -24,6 +24,26 @@ export interface JoinParams {
   token: string;
 }
 
+/** Words Indian-English ASR tends to mangle in this domain (opt-in boosting via ASR_KEYTERMS=1). */
+export const ASR_KEYTERMS = ["Sarva", "Majestic", "Aadhaar", "PAN card", "HDFC", "SBI", "ICICI", "Axis", "Kotak", "RuPay", "UPI", "Koramangala", "Indiranagar", "Whitefield"];
+
+/** Speech-to-text: Deepgram Nova-3 (Indian English, Agora-managed credentials) by default; Agora ARES as fallback. */
+export function asrConfig(cfg: AppConfig) {
+  if (cfg.agora.asrVendor === "ares") return { vendor: "ares", language: cfg.agora.asrLanguage };
+  return {
+    vendor: "deepgram",
+    credential_mode: "managed",
+    language: cfg.agora.asrLanguage,
+    params: {
+      url: "wss://api.deepgram.com/v1/listen",
+      model: "nova-3",
+      language: cfg.agora.asrLanguage,
+      smart_format: true,
+      ...(cfg.agora.asrKeyterms ? { keyterm: ASR_KEYTERMS } : {}),
+    },
+  };
+}
+
 /** Builds the Conversational AI Engine `/join` body: ASR → our custom LLM → Murf Falcon TTS. */
 export function buildJoinPayload(cfg: AppConfig, p: JoinParams) {
   return {
@@ -35,10 +55,7 @@ export function buildJoinPayload(cfg: AppConfig, p: JoinParams) {
       remote_rtc_uids: [String(p.userUid)],
       enable_string_uid: false,
       idle_timeout: 120,
-      asr: {
-        vendor: "ares",
-        language: cfg.agora.asrLanguage,
-      },
+      asr: asrConfig(cfg),
       llm: {
         vendor: "custom",
         style: "openai",
@@ -93,4 +110,23 @@ export async function stopAgent(cfg: AppConfig, agentId: string, fetchFn: FetchL
     signal: AbortSignal.timeout(10000),
   });
   if (!res.ok && res.status !== 404) throw new AgoraApiError(`Agora leave failed: ${res.status}`, res.status, await res.text().catch(() => ""));
+}
+
+/** Makes the running agent say `text` immediately (Agora `speak` API, max 512 bytes). */
+export async function agentSpeak(
+  cfg: AppConfig,
+  agentId: string,
+  text: string,
+  fetchFn: FetchLike = fetch,
+  priority: "INTERRUPT" | "APPEND" | "IGNORE" = "APPEND",
+): Promise<void> {
+  let t = text;
+  while (Buffer.byteLength(t) > 512) t = t.slice(0, -10);
+  const res = await fetchFn(`${base(cfg)}/agents/${encodeURIComponent(agentId)}/speak`, {
+    method: "POST",
+    headers: { Authorization: basicAuth(cfg), "Content-Type": "application/json" },
+    body: JSON.stringify({ text: t, priority, interruptable: true }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new AgoraApiError(`Agora speak failed: ${res.status}`, res.status, await res.text().catch(() => ""));
 }

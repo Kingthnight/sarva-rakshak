@@ -3,6 +3,7 @@ import type { SessionEvents } from "../events.js";
 import type { ToolHub } from "../mcp/hub.js";
 import type { ApprovalGate } from "./approvals.js";
 import type { LlmClient } from "./llm.js";
+import { GUARDRAIL_NOTE, redactSensitive } from "./guardrails.js";
 import { APOLOGY_LINE, FILLER_LINE } from "./prompt.js";
 
 export interface TurnContext {
@@ -11,6 +12,8 @@ export interface TurnContext {
   hub: ToolHub;
   gate: ApprovalGate;
   events: SessionEvents;
+  /** System-originated notes (e.g. card watch alerts) to prepend to this turn. */
+  takeAlerts?: () => string[];
 }
 
 export interface TurnResult {
@@ -33,9 +36,14 @@ export class Orchestrator {
   async runTurn(ctx: TurnContext, userText: string, onText: (delta: string) => void = () => {}): Promise<TurnResult> {
     const { history, hub, gate, events } = ctx;
     const checkpoint = history.length;
+    // Guardrail: redact card numbers / CVV / PIN / OTP / Aadhaar before the LLM ever sees them.
+    const { text: safeText, redactions } = redactSensitive(userText);
     gate.userTurn();
-    events.emit({ type: "user_said", text: userText });
-    appendUserText(history, userText);
+    events.emit({ type: "user_said", text: safeText });
+    if (redactions.length) events.emit({ type: "guardrail", message: `Redacted ${redactions.map((r) => r.kind).join(", ")} before it reached the AI`, kinds: redactions.map((r) => r.kind) });
+    const alerts = ctx.takeAlerts?.() ?? [];
+    const llmText = [...alerts, safeText, ...(redactions.length ? [GUARDRAIL_NOTE] : [])].join("\n");
+    appendUserText(history, llmText);
 
     let spoken = "";
     let toolCalls = 0;
@@ -89,7 +97,7 @@ export class Orchestrator {
     } catch (e) {
       // Roll back the partial turn so history stays a valid, append-only transcript.
       history.length = checkpoint;
-      appendUserText(history, userText);
+      appendUserText(history, llmText);
       history.push({ role: "assistant", content: [{ type: "text", text: APOLOGY_LINE }] });
       events.emit({ type: "error", message: (e as Error).message });
       say((spoken ? " " : "") + APOLOGY_LINE);

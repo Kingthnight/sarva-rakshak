@@ -1,12 +1,13 @@
 import type { Dispute, FlaggedTransaction } from "../services/bank.js";
 import type { ReissueGuide } from "../services/reissue.js";
 import type { Place } from "../services/geo.js";
+import { defaultProfile, type Profile } from "./profile.js";
 
 export interface CardAction {
   cardId: string;
   bank: string;
   last4: string;
-  method: "api" | "sms";
+  method: "api" | "sms" | "call" | "app" | "branch";
   reference: string;
   status: string;
   at: string;
@@ -39,10 +40,39 @@ export interface SentEmail {
   at: string;
 }
 
+export interface ActionNeeded {
+  id: string;
+  title: string;
+  detail: string;
+  tel?: string;
+  cardId?: string;
+  done: boolean;
+}
+
+export interface CardAlert {
+  txnId: string;
+  cardId: string;
+  last4: string;
+  bank: string;
+  amountInr: number;
+  merchant: string;
+  outcome: "declined" | "approved";
+  at: string;
+}
+
+export interface Replacement {
+  requestId: string;
+  cardId: string;
+  bank: string;
+  last4: string;
+  deliverTo: string;
+  expectedBy: string;
+}
+
 export interface CaseFile {
   caseId: string;
   createdAt: string;
-  user: { name: string; email: string; phoneMasked: string; city: string };
+  user: { name: string; email: string; phoneMasked: string; city: string; emergencyContact?: Profile["emergencyContact"]; documents: string[] };
   incident: { items: string[]; location?: string; lostAt?: string };
   cardActions: CardAction[];
   flaggedTransactions: FlaggedTransaction[];
@@ -52,13 +82,17 @@ export interface CaseFile {
   reissue: ReissueGuide[];
   reminders: Reminder[];
   emails: SentEmail[];
+  actionsNeeded: ActionNeeded[];
+  cardAlerts: CardAlert[];
+  replacements: Replacement[];
 }
 
-export function newCaseFile(opts: { caseId: string; email: string; now?: Date }): CaseFile {
+export function newCaseFile(opts: { caseId: string; email?: string; profile?: Profile; now?: Date }): CaseFile {
+  const p = opts.profile ?? defaultProfile(opts.email ?? "");
   return {
     caseId: opts.caseId,
     createdAt: (opts.now ?? new Date()).toISOString(),
-    user: { name: "Arjun Rao", email: opts.email, phoneMasked: "+91 98XXXX4210", city: "Bengaluru" },
+    user: { name: p.name, email: p.email || opts.email || "", phoneMasked: p.phone, city: p.city, emergencyContact: p.emergencyContact, documents: p.documents },
     incident: { items: [] },
     cardActions: [],
     flaggedTransactions: [],
@@ -66,6 +100,9 @@ export function newCaseFile(opts: { caseId: string; email: string; now?: Date })
     reissue: [],
     reminders: [],
     emails: [],
+    actionsNeeded: [],
+    cardAlerts: [],
+    replacements: [],
   };
 }
 
@@ -82,5 +119,8 @@ export function summarise(c: CaseFile) {
     reissue: c.reissue.map((g) => g.title),
     reminders: c.reminders.map((r) => `${r.title} @ ${r.dueAt}`),
     emails: c.emails.map((e) => `${e.subject} → ${e.to} [${e.mode}]`),
+    actionsNeeded: c.actionsNeeded.map((a) => ({ id: a.id, title: a.title, detail: a.detail, tel: a.tel, done: a.done })),
+    cardAlerts: c.cardAlerts.map((a) => `${a.outcome === "declined" ? "Blocked" : "⚠ Went through"}: ₹${a.amountInr} at ${a.merchant} on ${a.bank} ••${a.last4}`),
+    replacements: c.replacements.map((r) => `${r.bank} ••${r.last4} replacement ${r.requestId}, by ${r.expectedBy}`),
   };
 }

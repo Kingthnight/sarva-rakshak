@@ -16,7 +16,9 @@
       </div>
     </div>
     <div class="meta">
+      <span id="userPill" class="pill">…</span>
       <span id="caseId" class="pill">case: …</span>
+      <button id="settingsBtn" class="pill btn">⚙️ Settings</button>
       <span id="health" class="pill">checking…</span>
     </div>
   </header>
@@ -43,8 +45,19 @@
     <section class="card">
       <h2>Recovery plan</h2>
       <ol id="plan" class="plan"><li class="muted">The plan appears once Sarva understands the situation.</li></ol>
+      <div id="actionsBox" class="actions-box" hidden>
+        <h2>Action needed</h2>
+        <div id="actions"></div>
+      </div>
       <h2>Approvals</h2>
       <div id="approvals" class="approvals"><span class="muted">Sensitive actions wait for your "yes".</span></div>
+      <h2>Card watch <span class="sub">monitoring your saved cards</span></h2>
+      <div id="cards" class="cards"></div>
+      <div class="watch-controls">
+        <select id="simCard"></select>
+        <button id="simBtn" class="ghost">Simulate fraud attempt</button>
+      </div>
+      <div id="alerts" class="alerts"></div>
       <h2>Case file</h2>
       <div id="caseSummary" class="case muted">Nothing yet.</div>
     </section>
@@ -54,6 +67,36 @@
       <ul id="activity" class="activity"></ul>
     </section>
   </main>
+
+  <dialog id="settings" class="settings">
+    <form id="settingsForm" method="dialog">
+      <header><h2>Settings</h2><button type="button" id="closeSettings" class="ghost">✕</button></header>
+      <div class="cols">
+        <label>Name<input name="name" required /></label>
+        <label>Email (case file goes here)<input name="email" type="email" /></label>
+        <label>Phone (masked is fine)<input name="phone" /></label>
+        <label>City<input name="city" required /></label>
+      </div>
+      <h3>Emergency contact</h3>
+      <div class="cols">
+        <label>Name<input name="ecName" /></label>
+        <label>Relation<input name="ecRelation" /></label>
+        <label>Phone<input name="ecPhone" /></label>
+      </div>
+      <h3>Documents usually in your wallet</h3>
+      <div id="docs" class="docs"></div>
+      <h3>Cards <span class="sub">last 4 digits only. Never enter full numbers, CVV or PIN.</span></h3>
+      <div id="cardRows" class="card-rows"></div>
+      <button type="button" id="addCard" class="ghost">+ Add card</button>
+      <h3>Guardrails</h3>
+      <div class="cols">
+        <label>Warn on disputes above (₹)<input name="highValueInr" type="number" min="1" /></label>
+        <label class="check"><input name="cardWatch" type="checkbox" /> Card watch during sessions</label>
+      </div>
+      <p id="settingsError" class="error"></p>
+      <footer><button type="submit" class="primary">Save &amp; start new session</button></footer>
+    </form>
+  </dialog>
 
   <footer class="foot">Agora Conversational AI · Murf Falcon TTS · Claude · MCP. Bank and police systems are simulated in this prototype; maps and email are real.</footer>
 

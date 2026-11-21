@@ -1,24 +1,44 @@
 import express, { type Express } from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { AGENT_UID, buildJoinPayload, rtcToken, startAgent, stopAgent } from "./agora/convoai.js";
+import { AGENT_UID, agentSpeak, buildJoinPayload, rtcToken, startAgent, stopAgent } from "./agora/convoai.js";
 import { missingFor, type AppConfig } from "./config.js";
 import { summarise } from "./domain/case.js";
+import type { ProfileStore } from "./domain/profile.js";
+import { BANK_DIRECTORY } from "./services/banks.js";
+import { ZodError } from "zod";
 import { llmProxyHandler } from "./llm-proxy.js";
 import type { FetchLike } from "./services/geo.js";
-import type { SessionStore } from "./session.js";
+import type { Announcer, SessionStore } from "./session.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export interface AppDeps {
   config: AppConfig;
   store: SessionStore;
+  profiles?: ProfileStore;
   fetchFn?: FetchLike; // used for Agora REST calls (mocked in tests)
 }
 
-export function createApp({ config, store, fetchFn = fetch }: AppDeps): Express {
+/** Requests that arrive through the Cloudflare tunnel carry these headers. */
+const viaTunnel = (h: Record<string, unknown>) => Boolean(h["cf-connecting-ip"] || h["cf-ray"]);
+
+export function createApp({ config, store, profiles, fetchFn = fetch }: AppDeps): Express {
   const app = express();
+  // Guardrail: the public tunnel may only reach the Agora LLM endpoint; UI, profile and controls stay local.
+  app.use((req, res, next) => {
+    if (viaTunnel(req.headers) && !req.path.startsWith("/llm/")) {
+      res.status(403).json({ error: "Only the Agora LLM endpoint is exposed publicly" });
+      return;
+    }
+    next();
+  });
   app.use(express.json({ limit: "1mb" }));
+  const announce: Announcer = async (s, text) => {
+    if (!s.agentId) return false;
+    await agentSpeak(config, s.agentId, text, fetchFn);
+    return true;
+  };
   app.use(express.static(path.join(root, "public")));
   app.use("/vendor/agora", express.static(path.join(root, "node_modules/agora-rtc-sdk-ng")));
 
@@ -32,10 +52,47 @@ export function createApp({ config, store, fetchFn = fetch }: AppDeps): Express 
     });
   });
 
+  // Settings: profile with cards, documents, emergency contact and guardrail options.
+  app.get("/api/profile", (_req, res) => {
+    if (!profiles) {
+      res.status(404).json({ error: "profiles disabled" });
+      return;
+    }
+    res.json({ profile: profiles.get(), banks: Object.entries(BANK_DIRECTORY).map(([code, b]) => ({ code, ...b })) });
+  });
+
+  app.put("/api/profile", (req, res) => {
+    if (!profiles) {
+      res.status(404).json({ error: "profiles disabled" });
+      return;
+    }
+    try {
+      res.json({ profile: profiles.save(req.body) });
+    } catch (e) {
+      const msg = e instanceof ZodError ? e.issues.map((i) => `${i.path.join(".") || "profile"}: ${i.message}`).join("; ") : (e as Error).message;
+      res.status(400).json({ error: msg });
+    }
+  });
+
+  // Card watch demo: a new charge attempt hits a card (declined if already blocked).
+  app.post("/api/sessions/:id/simulate/charge", async (req, res) => {
+    const s = store.get(req.params.id);
+    if (!s) {
+      res.status(404).json({ error: "session not found" });
+      return;
+    }
+    try {
+      const b = (req.body ?? {}) as { cardId?: string; amountInr?: number; merchant?: string };
+      res.json(await s.cardWatchEvent({ cardId: b.cardId, amountInr: b.amountInr, merchant: b.merchant }, announce));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  });
+
   // Create a session (text mode works without Agora).
   app.post("/api/sessions", async (_req, res) => {
     const s = await store.create();
-    res.json({ sessionId: s.id, caseId: s.caseFile.caseId });
+    res.json({ sessionId: s.id, caseId: s.caseFile.caseId, user: s.profile.name, cards: s.bank.listCards() });
   });
 
   // Start the Agora voice agent for a session.
@@ -85,6 +142,15 @@ export function createApp({ config, store, fetchFn = fetch }: AppDeps): Express 
     const s = await store.getOrCreate(req.params.id);
     const r = await s.say(text);
     res.json(r);
+  });
+
+  app.get("/api/sessions/:id/cards", (req, res) => {
+    const s = store.get(req.params.id);
+    if (!s) {
+      res.status(404).json({ error: "session not found" });
+      return;
+    }
+    res.json({ cards: s.bank.listCards() });
   });
 
   app.get("/api/sessions/:id/case", (req, res) => {

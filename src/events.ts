@@ -11,6 +11,8 @@ export type AgentEvent =
   | { type: "approval_granted"; approvalId: string; action: string }
   | { type: "approval_rejected"; approvalId?: string; action: string; reason: string }
   | { type: "case"; summary: unknown }
+  | { type: "guardrail"; message: string; kinds: string[] }
+  | { type: "card_alert"; cardId: string; last4: string; bank: string; amountInr: number; merchant: string; outcome: "declined" | "approved"; spoken: boolean }
   | { type: "error"; message: string };
 
 export type StampedEvent = AgentEvent & { at: string; seq: number };

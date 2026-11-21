@@ -27,11 +27,14 @@ describe("ToolHub + MCP servers", () => {
         "find_nearest_police_station",
         "file_lost_report",
         "freeze_card",
+        "get_block_options",
         "get_recent_transactions",
         "get_reissue_steps",
         "list_cards",
         "raise_dispute",
         "record_incident",
+        "record_manual_block",
+        "request_replacement_card",
         "request_user_approval",
         "schedule_reminder",
         "send_case_file",
@@ -51,18 +54,18 @@ describe("ToolHub + MCP servers", () => {
     const { hub, ctx, seen } = await makeHub();
     const ok = await hub.execute("freeze_card", { card_id: "hdfc-cc-4821" }, "c1");
     expect(ok.isError).toBe(false);
-    expect(parse(ok.content)).toMatchObject({ status: "frozen", bank: "HDFC" });
+    expect(parse(ok.content)).toMatchObject({ status: "frozen", bank: "HDFC Bank" });
 
     const down = await hub.execute("freeze_card", { card_id: "sbi-dc-1093" }, "c2");
     expect(down.isError).toBe(true);
-    expect(parse(down.content)).toMatchObject({ error: "BANK_UNAVAILABLE", bank: "SBI" });
+    expect(parse(down.content)).toMatchObject({ error: "BANK_UNAVAILABLE", bank: "State Bank of India" });
 
     const sms = await hub.execute("send_sms_block", { card_id: "sbi-dc-1093" }, "c3");
     expect(parse(sms.content)).toMatchObject({ method: "sms", smsBody: "BLOCK 1093" });
 
     expect(ctx.caseFile.cardActions.map((a) => [a.bank, a.method])).toEqual([
-      ["HDFC", "api"],
-      ["SBI", "sms"],
+      ["HDFC Bank", "api"],
+      ["State Bank of India", "sms"],
     ]);
     const types = seen.map((e) => e.type);
     expect(types.filter((t) => t === "tool_start")).toHaveLength(3);
@@ -81,16 +84,16 @@ describe("ToolHub + MCP servers", () => {
   it("blocks sensitive tools without a valid approval, allows them after the user's turn", async () => {
     const { hub, gate, ctx, seen } = await makeHub();
     gate.userTurn();
-    const blocked = await hub.execute("raise_dispute", { txn_id: "txn-1002", reason: "not me" }, "d0");
+    const blocked = await hub.execute("raise_dispute", { txn_id: "txn-9002", reason: "not me" }, "d0");
     expect(parse(blocked.content).error).toBe("APPROVAL_REQUIRED");
 
     const req = await hub.execute("request_user_approval", { action: "raise_dispute", summary: "Dispute 4999" }, "a1");
     const { approval_id } = parse(req.content);
-    const tooEarly = await hub.execute("raise_dispute", { txn_id: "txn-1002", reason: "not me", approval_id }, "d1");
+    const tooEarly = await hub.execute("raise_dispute", { txn_id: "txn-9002", reason: "not me", approval_id }, "d1");
     expect(parse(tooEarly.content).error).toBe("APPROVAL_REQUIRED");
 
     gate.userTurn(); // "yes"
-    const done = await hub.execute("raise_dispute", { txn_id: "txn-1002", reason: "not me", approval_id }, "d2");
+    const done = await hub.execute("raise_dispute", { txn_id: "txn-9002", reason: "not me", approval_id }, "d2");
     expect(done.isError).toBe(false);
     expect(parse(done.content)).toMatchObject({ amountInr: 4999, status: "filed" });
     expect(ctx.caseFile.disputes).toHaveLength(1);
@@ -127,7 +130,7 @@ describe("ToolHub + MCP servers", () => {
     const sent = parse((await hub.execute("send_case_file", {}, "e")).content);
     expect(sent).toMatchObject({ sent: true, mode: "dry-run", to: "demo@example.com" });
     expect(sent.attachments).toEqual(["case-CASE-TEST.pdf", "sarva-reminders.ics"]);
-    expect(email.outbox[0].html).toContain("HDFC ••4821");
+    expect(email.outbox[0].html).toContain("HDFC Bank ••4821");
     expect(ctx.caseFile.emails).toHaveLength(1);
     await hub.close();
   });

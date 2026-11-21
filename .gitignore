@@ -9,3 +9,4 @@ __pycache__/
 outbox/
 *.log
 coverage/
+data/

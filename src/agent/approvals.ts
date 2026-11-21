@@ -4,7 +4,7 @@
  * request, so the model cannot approve its own actions. Each approval works once.
  */
 
-export const SENSITIVE_ACTIONS = ["raise_dispute", "file_lost_report"] as const;
+export const SENSITIVE_ACTIONS = ["raise_dispute", "file_lost_report", "request_replacement_card"] as const;
 export type SensitiveAction = (typeof SENSITIVE_ACTIONS)[number];
 
 export const isSensitive = (name: string): name is SensitiveAction => (SENSITIVE_ACTIONS as readonly string[]).includes(name);

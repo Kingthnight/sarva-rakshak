@@ -10,18 +10,19 @@ import { FIXED_NOW, seqIds } from "./helpers.js";
 const now = () => FIXED_NOW;
 
 describe("BankSimulator", () => {
-  it("lists two demo cards, both active", () => {
+  it("lists the default profile's three cards, all active, with block channels", () => {
     const b = new BankSimulator({ now });
-    expect(b.listCards().map((c) => [c.bank, c.last4, c.status])).toEqual([
-      ["HDFC", "4821", "active"],
-      ["SBI", "1093", "active"],
+    expect(b.listCards().map((c) => [c.bank, c.last4, c.status, c.channels.join("/")])).toEqual([
+      ["HDFC", "4821", "active", "api/sms/call"],
+      ["SBI", "1093", "active", "api/sms/call"],
+      ["ICICI", "7710", "active", "call"],
     ]);
   });
 
   it("freezes a card by id or last4 and returns a reference", () => {
     const b = new BankSimulator({ now, idGen: seqIds() });
     const r = b.freezeCard("4821");
-    expect(r).toMatchObject({ simulated: true, bank: "HDFC", status: "frozen", reference: "HDFC-BLK-T001" });
+    expect(r).toMatchObject({ simulated: true, bank: "HDFC Bank", status: "frozen", reference: "HDFC-BLK-T001" });
     expect(b.listCards()[0].status).toBe("frozen");
   });
 
@@ -39,15 +40,15 @@ describe("BankSimulator", () => {
   it("flags only the recent unknown online transaction as suspicious", () => {
     const b = new BankSimulator({ now });
     const hdfc = b.recentTransactions("hdfc-cc-4821");
-    expect(hdfc.filter((t) => t.suspicious).map((t) => [t.id, t.amountInr])).toEqual([["txn-1002", 4999]]);
-    expect(hdfc.find((t) => t.id === "txn-1002")!.reason).toMatch(/12 minutes ago/);
+    expect(hdfc.filter((t) => t.suspicious).map((t) => [t.id, t.amountInr])).toEqual([["txn-9002", 4999]]);
+    expect(hdfc.find((t) => t.id === "txn-9002")!.reason).toMatch(/12 minutes ago/);
     expect(b.recentTransactions("sbi-dc-1093", 60)).toEqual([]); // the metro txn is 26h old
   });
 
   it("raises a dispute once (idempotent)", () => {
     const b = new BankSimulator({ now, idGen: seqIds() });
-    const d1 = b.raiseDispute("txn-1002", "not me");
-    const d2 = b.raiseDispute("txn-1002", "again");
+    const d1 = b.raiseDispute("txn-9002", "not me");
+    const d2 = b.raiseDispute("txn-9002", "again");
     expect(d1.disputeId).toBe(d2.disputeId);
     expect(d1.amountInr).toBe(4999);
     expect(() => b.raiseDispute("nope", "x")).toThrow(NotFoundError);

@@ -16,6 +16,8 @@ export interface AppConfig {
     customerKey: string;
     customerSecret: string;
     asrLanguage: string;
+    asrVendor: "deepgram" | "ares";
+    asrKeyterms: boolean;
   };
   murf: { apiKey: string; voiceId: string; locale: string };
   claude: { apiKey: string; model: string; effort: "low" | "medium" | "high" | "xhigh" | "max" };
@@ -39,7 +41,9 @@ export function loadConfig(env: Env = process.env): AppConfig {
       appCertificate: env.AGORA_APP_CERTIFICATE ?? "",
       customerKey: env.AGORA_CUSTOMER_KEY ?? "",
       customerSecret: env.AGORA_CUSTOMER_SECRET ?? "",
-      asrLanguage: env.ASR_LANGUAGE ?? "en-US",
+      asrLanguage: env.ASR_LANGUAGE || "en-IN",
+      asrVendor: env.ASR_VENDOR === "ares" ? "ares" : "deepgram",
+      asrKeyterms: env.ASR_KEYTERMS === "1",
     },
     murf: {
       apiKey: env.MURF_API_KEY ?? "",

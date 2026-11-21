@@ -44,7 +44,7 @@ describe("Orchestrator: full Track-3 workflow with a scripted LLM", () => {
       // Turn 2: user says yes → sensitive actions + docs + follow-up
       {
         tools: [
-          { name: "raise_dispute", input: (req) => ({ txn_id: "txn-1002", reason: "Unauthorised after wallet loss", approval_id: approvalIdFrom(req, "raise_dispute") }) },
+          { name: "raise_dispute", input: (req) => ({ txn_id: "txn-9002", reason: "Unauthorised after wallet loss", approval_id: approvalIdFrom(req, "raise_dispute") }) },
           {
             name: "file_lost_report",
             input: (req) => ({ items: ["wallet"], location: "Majestic bus stand", lost_at: "20 minutes ago", narrative: "I lost my wallet at Majestic bus stand.", approval_id: approvalIdFrom(req, "file_lost_report") }),
@@ -69,7 +69,7 @@ describe("Orchestrator: full Track-3 workflow with a scripted LLM", () => {
     expect(r1.text).toContain("Shall I dispute");
     expect(spoken1.join("")).toBe(r1.text + (spoken1.join("").endsWith(" ") ? " " : "")); // streamed == returned (modulo trim)
     // Adapt: SBI fell back to SMS; HDFC frozen
-    expect(s.ctx.caseFile.cardActions.map((a) => `${a.bank}:${a.method}`)).toEqual(["HDFC:api", "SBI:sms"]);
+    expect(s.ctx.caseFile.cardActions.map((a) => `${a.bank}:${a.method}`)).toEqual(["HDFC Bank:api", "State Bank of India:sms"]);
     // Nothing sensitive happened yet
     expect(s.ctx.caseFile.disputes).toHaveLength(0);
     expect(s.ctx.caseFile.report).toBeUndefined();
@@ -103,7 +103,7 @@ describe("Orchestrator: full Track-3 workflow with a scripted LLM", () => {
   it("blocks the model from approving its own action within the same turn", async () => {
     const s = await setup([
       { tools: [{ name: "request_user_approval", input: { action: "raise_dispute", summary: "x" } }] },
-      { tools: [{ name: "raise_dispute", input: (req) => ({ txn_id: "txn-1002", reason: "x", approval_id: approvalIdFrom(req, "raise_dispute") }) }] },
+      { tools: [{ name: "raise_dispute", input: (req) => ({ txn_id: "txn-9002", reason: "x", approval_id: approvalIdFrom(req, "raise_dispute") }) }] },
       { text: "I need your confirmation first." },
     ]);
     await s.orch.runTurn(s.turn, "dispute it");
