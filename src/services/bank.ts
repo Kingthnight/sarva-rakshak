@@ -6,6 +6,7 @@
  */
 import { defaultProfile, type CardProfile } from "../domain/profile.js";
 import { bankInfo, telLink, type BlockChannel } from "./banks.js";
+import { defaultIdGen as defaultId } from "../domain/refs.js";
 
 export type CardStatus = "active" | "frozen" | "block_requested" | "blocked";
 
@@ -89,9 +90,6 @@ export interface BankOptions {
 
 const minutesAgo = (now: Date, m: number) => new Date(now.getTime() - m * 60_000).toISOString();
 
-let counter = 0;
-const defaultId = (prefix: string) =>
-  `${prefix}-${Date.now().toString(36).toUpperCase()}${(++counter).toString(36).toUpperCase()}`;
 
 const KNOWN_MERCHANTS: Array<[string, Transaction["channel"], number]> = [
   ["Swiggy", "online", 340],

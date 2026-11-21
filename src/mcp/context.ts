@@ -4,6 +4,8 @@ import type { BankSimulator } from "../services/bank.js";
 import type { GeoService } from "../services/geo.js";
 import type { EmailSender } from "../services/email.js";
 import { BankCallSimulator } from "../services/bank-call.js";
+import { TelecomSimulator } from "../services/telecom.js";
+import { defaultProfile, type Profile } from "../domain/profile.js";
 
 /** Everything an MCP server needs; injected so tests can swap in fakes. */
 export interface ServiceContext {
@@ -15,6 +17,20 @@ export interface ServiceContext {
   idGen: (prefix: string) => string;
   /** Simulated outbound bank calls ("Sarva calls for you"). */
   calls?: BankCallSimulator;
+  /** The user's saved profile (device, emergency contact…). */
+  profile?: Profile;
+  /** Simulated operator + Find-My-Device services. */
+  telecom?: TelecomSimulator;
+}
+
+export function profileOf(ctx: ServiceContext): Profile {
+  ctx.profile ??= defaultProfile(ctx.caseFile.user.email);
+  return ctx.profile;
+}
+
+export function telecomOf(ctx: ServiceContext): TelecomSimulator {
+  ctx.telecom ??= new TelecomSimulator(profileOf(ctx).device, ctx.now, ctx.idGen, ctx.caseFile.incident.location ?? "Majestic, Bengaluru");
+  return ctx.telecom;
 }
 
 export function callsOf(ctx: ServiceContext): BankCallSimulator {
@@ -30,6 +46,4 @@ export function fail(error: string, details: Record<string, unknown> = {}): Call
   return { content: [{ type: "text", text: JSON.stringify({ error, ...details }) }], isError: true };
 }
 
-let seq = 0;
-export const defaultIdGen = (prefix: string) =>
-  `${prefix}-${Date.now().toString(36).slice(-5).toUpperCase()}${(++seq).toString().padStart(2, "0")}`;
+export { defaultIdGen } from "../domain/refs.js";

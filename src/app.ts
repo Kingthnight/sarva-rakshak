@@ -18,12 +18,14 @@ export interface AppDeps {
   store: SessionStore;
   profiles?: ProfileStore;
   fetchFn?: FetchLike; // used for Agora REST calls (mocked in tests)
+  /** Time for the goodbye to be spoken before hanging up. */
+  endCallDelayMs?: number;
 }
 
 /** Requests that arrive through the Cloudflare tunnel carry these headers. */
 const viaTunnel = (h: Record<string, unknown>) => Boolean(h["cf-connecting-ip"] || h["cf-ray"]);
 
-export function createApp({ config, store, profiles, fetchFn = fetch }: AppDeps): Express {
+export function createApp({ config, store, profiles, fetchFn = fetch, endCallDelayMs = 7000 }: AppDeps): Express {
   const app = express();
   // Guardrail: the public tunnel may only reach the Agora LLM endpoint; UI, profile and controls stay local.
   app.use((req, res, next) => {
@@ -34,6 +36,19 @@ export function createApp({ config, store, profiles, fetchFn = fetch }: AppDeps)
     next();
   });
   app.use(express.json({ limit: "1mb" }));
+  // end_call tool: let the goodbye finish playing, then make the Agora agent leave.
+  store.onEndCall = (s) => {
+    const agentId = s.agentId;
+    if (!agentId) return;
+    setTimeout(() => {
+      stopAgent(config, agentId, fetchFn)
+        .then(() => {
+          if (s.agentId === agentId) s.agentId = undefined;
+          s.events.emit({ type: "status", message: "Call ended by Sarva" });
+        })
+        .catch((e) => s.events.emit({ type: "error", message: (e as Error).message }));
+    }, endCallDelayMs);
+  };
   const announce: Announcer = async (s, text) => {
     if (!s.agentId) return false;
     await agentSpeak(config, s.agentId, text, fetchFn);
@@ -200,9 +215,9 @@ export function createApp({ config, store, profiles, fetchFn = fetch }: AppDeps)
   // Agora Conversational AI → our agent (OpenAI-compatible).
   app.post(
     "/llm/:sessionId/chat/completions",
-    llmProxyHandler(config.llmProxySecret, async (sessionId, text, onText) => {
+    llmProxyHandler(config.llmProxySecret, async (sessionId, text, onText, meta) => {
       const s = await store.getOrCreate(sessionId);
-      return s.say(text, onText);
+      return s.say(text, onText, meta);
     }),
   );
 

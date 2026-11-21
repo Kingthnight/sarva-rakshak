@@ -20,7 +20,7 @@ describe("BankCallSimulator", () => {
     expect(updates.length).toBe(call.steps.length);
     await expect(sim.verify(call.callId, "blue")).rejects.toThrow(/repeat/);
     const done = await sim.verify(call.callId, "12/03/1998");
-    expect(done).toMatchObject({ state: "completed", reference: expect.stringMatching(/^ICI-\d{5}$/) });
+    expect(done).toMatchObject({ state: "completed", reference: expect.stringMatching(/^ICICI-CALL-\d{6}$/) });
     await expect(sim.verify(call.callId, "12/03/1998")).rejects.toThrow(/not waiting/);
   });
 
@@ -46,7 +46,7 @@ describe("call tools via MCP", () => {
     const started = parse((await hub.execute("call_bank_for_user", { card_id: "7710" }, "c")).content);
     expect(started).toMatchObject({ state: "verifying", next: expect.stringMatching(/date of birth/) });
     const done = parse((await hub.execute("bank_call_verify", { call_id: started.callId, date_of_birth: "12/03/1998" }, "v")).content);
-    expect(done).toMatchObject({ blocked: true, last4: "7710", reference: expect.stringMatching(/^ICI-\d{5}$/) });
+    expect(done).toMatchObject({ blocked: true, last4: "7710", reference: expect.stringMatching(/^ICICI-CALL-\d{6}$/) });
     expect(ctx.bank.getCard("7710").status).toBe("blocked");
     expect(ctx.caseFile.actionsNeeded[0]).toMatchObject({ done: true, detail: `Reference ${done.reference}` });
     expect(ctx.caseFile.cardActions.at(-1)).toMatchObject({ method: "call", reference: done.reference });

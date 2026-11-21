@@ -14,7 +14,7 @@ export const FIXED_NOW = new Date("2026-11-21T09:30:00.000Z");
 
 export function seqIds() {
   let n = 0;
-  return (prefix: string) => `${prefix}-T${String(++n).padStart(3, "0")}`;
+  return (prefix: string) => `${prefix}-${String(100000 + ++n)}`;
 }
 
 export function makeCtx(over: Partial<ServiceContext> & { outages?: string[] } = {}) {

@@ -18,6 +18,7 @@ export interface BankCall {
   callId: string;
   cardId: string;
   bank: string;
+  bankCode: string;
   last4: string;
   helpline: string;
   state: CallState;
@@ -56,7 +57,7 @@ export class BankCallSimulator {
     this.idGen = opts.idGen ?? ((p) => `${p}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`);
     this.delay = opts.stepDelayMs ?? 1100;
     this.onUpdate = opts.onUpdate ?? (() => {});
-    this.refDigits = opts.refDigits ?? (() => String(10000 + Math.floor(Math.random() * 90000)));
+    this.refDigits = opts.refDigits ?? (() => String(100000 + Math.floor(Math.random() * 900000)));
   }
 
   get(callId: string): BankCall | undefined {
@@ -83,6 +84,7 @@ export class BankCallSimulator {
       callId: this.idGen("CALL"),
       cardId: card.id,
       bank: card.bankName,
+      bankCode: card.bank,
       last4: card.last4,
       helpline: card.helpline,
       state: "dialing",
@@ -121,7 +123,7 @@ export class BankCallSimulator {
     this.push(call, `Bank agent is blocking the card ending ${call.last4}…`, "blocking", "active");
     await sleep(this.delay);
     // Short and easy to say aloud, like real helpline complaint numbers: "ICI-48213".
-    call.reference = `${call.bank.replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase()}-${this.refDigits()}`;
+    call.reference = `${call.bankCode}-CALL-${this.refDigits()}`;
     this.push(call, `Card ending ${call.last4} BLOCKED · reference ${call.reference}`, "completed");
     return structuredClone(call);
   }

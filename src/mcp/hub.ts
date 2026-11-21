@@ -4,10 +4,12 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ApprovalGate, isSensitive, SENSITIVE_ACTIONS } from "../agent/approvals.js";
 import { summarise } from "../domain/case.js";
+import { REF_PATTERN, spokenRef } from "../domain/refs.js";
 import type { SessionEvents } from "../events.js";
 import { createBankServer } from "./bank-server.js";
 import { createCivicServer } from "./civic-server.js";
 import { createNotifyServer } from "./notify-server.js";
+import { createTelecomServer } from "./telecom-server.js";
 import type { ServiceContext } from "./context.js";
 
 /** Hides personal answers (e.g. date of birth) from the activity feed. */
@@ -15,6 +17,23 @@ export function maskForDisplay(input: Record<string, unknown>): Record<string, u
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(input)) out[k] = /dob|date_of_birth|birth/i.test(k) ? "••/••/••••" : v;
   return out;
+}
+
+/** Adds `<key>Spoken` next to every reference-looking value so the agent reads them consistently. */
+export function withSpokenRefs(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(withSpokenRefs);
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = withSpokenRefs(v);
+    if (typeof v === "string" && REF_PATTERN.test(v)) out[`${k}Spoken`] = spokenRef(v);
+  }
+  return out;
+}
+
+export interface HubHooks {
+  /** Called when the agent decides the conversation is over. */
+  endCall?: (reason: string) => Promise<void> | void;
 }
 
 export interface ToolOutcome {
@@ -38,6 +57,7 @@ export class ToolHub {
   private readonly route = new Map<string, { client: Client; server: string }>();
   private readonly internal = new Map<string, InternalTool>();
   private toolDefs: Anthropic.Tool[] = [];
+  readonly hooks: HubHooks = {};
 
   private constructor(
     private readonly ctx: ServiceContext,
@@ -50,6 +70,7 @@ export class ToolHub {
     await hub.connect("bank", createBankServer(ctx));
     await hub.connect("civic", createCivicServer(ctx));
     await hub.connect("notify", createNotifyServer(ctx));
+    await hub.connect("telecom", createTelecomServer(ctx));
     hub.registerInternalTools();
     return hub;
   }
@@ -103,6 +124,20 @@ export class ToolHub {
       },
     });
 
+    this.internal.set("end_call", {
+      def: {
+        name: "end_call",
+        description:
+          "Hang up the voice call. Use only when the user clearly wants to finish (e.g. 'that's all, thanks, bye') AND nothing urgent is pending, or they explicitly ask you to end the call. Say a short warm goodbye in the same turn BEFORE calling this; the line closes a few seconds later, after your goodbye is spoken.",
+        input_schema: { type: "object", properties: { reason: { type: "string" } }, required: ["reason"] },
+      },
+      run: async (input) => {
+        const reason = String(input.reason ?? "conversation finished");
+        await this.hooks.endCall?.(reason);
+        return { content: JSON.stringify({ ending: true, reason, note: "Don't say anything else after the goodbye." }), isError: false };
+      },
+    });
+
     this.internal.set("request_user_approval", {
       def: {
         name: "request_user_approval",
@@ -150,7 +185,8 @@ export class ToolHub {
 
     let parsed: unknown = outcome.content;
     try {
-      parsed = JSON.parse(outcome.content);
+      parsed = withSpokenRefs(JSON.parse(outcome.content));
+      outcome = { ...outcome, content: JSON.stringify(parsed) };
     } catch {
       /* keep raw text */
     }

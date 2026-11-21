@@ -24,6 +24,15 @@ describe("ToolHub + MCP servers", () => {
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual(
       [
+        "block_imei_ceir",
+        "block_sim",
+        "device_locate_ring_lock",
+        "end_call",
+        "get_case_status",
+        "get_device_info",
+        "get_profile_details",
+        "notify_emergency_contact",
+        "remote_erase_device",
         "bank_call_verify",
         "call_bank_for_user",
         "start_call_copilot",

@@ -26,6 +26,10 @@ Built for **Build with Agora BLR**, Track 3: *AI Agents That Get Things Done*.
   3. **Phone call only** for some banks. The agent can't phone the bank itself, so it shows a **Call now** button (`tel:` link) with the helpline and a one-line script. Afterwards it records the reference you were given with `record_manual_block`.
 - **One lost card vs a whole wallet:** for a single card, the agent asks which one if unclear, acts only on that card, checks its recent transactions and offers a replacement (approval needed). For a wallet, it acts on all saved cards and documents.
 - **Sarva calls the bank for you:** for phone-only banks, Sarva places the helpline call itself. A live call card shows dialing, the phone menu, hold and verification. Sarva asks you only for your **date of birth** (never OTP, PIN or CVV), then saves the reference automatically. Tap **"I'll call myself"** to switch to **co-pilot mode**: a call button, what to say, a menu hint, and Sarva saves the reference when you say it. *The call is simulated in this prototype. Real outbound calling would use a Twilio SIP trunk through Agora Studio, which can't yet press phone-menu keys.*
+- **Lost phone (telecom MCP):** blocks the SIM first (bank OTPs go to it), locates, rings and locks the phone, and offers remote erase (approval needed). It offers an IMEI block on Sanchar Saathi/CEIR, which needs the police report first, and can message your emergency contact (approval needed). Phone details live in Settings.
+- **Conversation, not a form:** Sarva answers your question before carrying on, acknowledges stress, paces itself one or two things at a time, mirrors light Hinglish, and talks politely with a family member who takes over (approvals still come from you). It answers "what's done?" through `get_case_status`, and when you say bye it recaps and hangs up with `end_call`, unless something urgent is still open, in which case it gently asks to finish that first.
+- **Interruptions:** short sounds ("hmm", "okay") no longer cut Sarva off. If you really speak over it, the server works out what you didn't hear, from where Agora cut the stream and from Agora's own record of the reply. Sarva then starts its next reply with "Quickly, before I forget…", gives only the important bit, and answers you.
+- **References:** one format everywhere, `CODE-KIND-NNNNNN` (for example `AXIS-BLK-482913`, `ICICI-CALL-507216`, `SRK-LAR-118204`), with a spoken form ("A X I S, block, four eight two, nine one three") so they're read the same way every time.
 - **Card watch (monitoring):** new charge attempts appear live. Attempts on frozen cards show as **declined** ("the freeze worked"). A charge on an active card raises an alert, and the agent says it out loud mid-call through Agora's `speak` API, then offers to freeze. Demo it with the **Simulate fraud attempt** button.
 - **Guardrails:**
   - Full card numbers, CVV, PIN, OTP and Aadhaar numbers are **redacted on the server before the AI sees them**, and the agent warns you.
@@ -61,7 +65,7 @@ Express (src/app.ts) ── Orchestrator (Claude streaming tool loop + approval 
 ```bash
 npm install
 cp .env.example .env              # fill in keys (see REQUIREMENTS.md §7)
-npm test                          # 69 tests, all offline, costs nothing
+npm test                          # 80 tests, all offline, costs nothing
 npm run smoke                     # free real-API checks: Agora, Murf, OpenStreetMap
 npm run chat -- --demo            # full workflow in text mode with real Claude (no voice minutes)
 npm run dev                       # http://localhost:8790 (type in the box; text mode)

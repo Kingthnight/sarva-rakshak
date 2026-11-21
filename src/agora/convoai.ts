@@ -31,7 +31,8 @@ export const ASR_KEYTERMS = ["Sarva", "Majestic", "Aadhaar", "HDFC", "SBI", "ICI
 export const TURN_DETECTION = {
   mode: "default",
   config: {
-    start_of_speech: { mode: "vad", vad_config: { interrupt_duration_ms: 200, prefix_padding_ms: 800 } },
+    // ~0.5 s of real speech is needed to interrupt, so "hmm", "okay" or background noise don't cut Sarva off.
+    start_of_speech: { mode: "vad", vad_config: { interrupt_duration_ms: 480, speaking_interrupt_duration_ms: 480, prefix_padding_ms: 800 } },
     end_of_speech: { mode: "semantic", semantic_config: { silence_duration_ms: 480, max_wait_ms: 3000 } },
   },
 };

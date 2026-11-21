@@ -3,7 +3,7 @@ import { z } from "zod";
 import { summarise, type CaseFile } from "../domain/case.js";
 import { buildCaseFilePdf, buildIcs } from "../services/documents.js";
 import type { EmailAttachment } from "../services/email.js";
-import { fail, ok, type ServiceContext } from "./context.js";
+import { fail, ok, profileOf, type ServiceContext } from "./context.js";
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
@@ -72,6 +72,51 @@ export function createNotifyServer(ctx: ServiceContext): McpServer {
       } catch (e) {
         return fail("EMAIL_FAILED", { message: (e as Error).message });
       }
+    },
+  );
+
+  server.registerTool(
+    "get_case_status",
+    {
+      title: "Case status",
+      description: "What has been done so far in this case and what's still pending (cards, calls, disputes, report, phone, reminders, emails). Use it when the user asks 'what's done?' or 'where are we?', or after an interruption.",
+      inputSchema: {},
+    },
+    async () =>
+      ok({
+        ...summarise(caseFile),
+        pending: caseFile.actionsNeeded.filter((a) => !a.done).map((a) => a.title),
+        reportFiled: Boolean(caseFile.report),
+        caseFileEmailed: caseFile.emails.length > 0,
+      }),
+  );
+
+  server.registerTool(
+    "get_profile_details",
+    {
+      title: "Profile details",
+      description: "The user's saved details: name, city, phone (masked), emergency contact, documents usually in the wallet, saved device. Never contains full card numbers.",
+      inputSchema: {},
+    },
+    async () => {
+      const p = profileOf(ctx);
+      return ok({ name: p.name, city: p.city, phone: p.phone, emergencyContact: p.emergencyContact, documents: p.documents, device: p.device, cards: p.cards.map((c) => `${c.bank} ${c.kind} ••${c.last4}${c.nickname ? ` (${c.nickname})` : ""}`) });
+    },
+  );
+
+  server.registerTool(
+    "notify_emergency_contact",
+    {
+      title: "Message the emergency contact",
+      description: "Send a short SMS to the user's emergency contact (simulated in this prototype), e.g. 'Koushik lost his phone; reach him on this number'. Sensitive: requires explicit user approval. Fails if no contact is saved.",
+      inputSchema: { message: z.string().min(5).max(300) },
+    },
+    async ({ message }) => {
+      const ec = profileOf(ctx).emergencyContact;
+      if (!ec?.name || !ec.phone) return fail("NO_EMERGENCY_CONTACT", { message: "No emergency contact saved. The user can add one in Settings." });
+      const reference = ctx.idGen("SRK-MSG");
+      caseFile.contactMessages.push({ to: `${ec.name}${ec.relation ? ` (${ec.relation})` : ""}`, text: message, reference, at: ctx.now().toISOString() });
+      return ok({ simulated: true, sent: true, to: ec.name, relation: ec.relation, reference });
     },
   );
 

@@ -22,7 +22,7 @@ describe("BankSimulator", () => {
   it("freezes a card by id or last4 and returns a reference", () => {
     const b = new BankSimulator({ now, idGen: seqIds() });
     const r = b.freezeCard("4821");
-    expect(r).toMatchObject({ simulated: true, bank: "HDFC Bank", status: "frozen", reference: "HDFC-BLK-T001" });
+    expect(r).toMatchObject({ simulated: true, bank: "HDFC Bank", status: "frozen", reference: "HDFC-BLK-100001" });
     expect(b.listCards()[0].status).toBe("frozen");
   });
 

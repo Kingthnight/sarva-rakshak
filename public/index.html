@@ -87,6 +87,13 @@
         <label>Relation<input name="ecRelation" /></label>
         <label>Phone<input name="ecPhone" /></label>
       </div>
+      <h3>Your phone</h3>
+      <div class="cols">
+        <label>Model<input name="devModel" placeholder="e.g. Pixel 8" /></label>
+        <label>OS<select name="devOs"><option value="android">Android</option><option value="ios">iPhone (iOS)</option></select></label>
+        <label>Operator<select name="devOperator"><option>Jio</option><option>Airtel</option><option>Vi</option><option>BSNL</option><option>Other</option></select></label>
+        <label>Number: last 4<input name="devLast4" maxlength="4" inputmode="numeric" /></label>
+      </div>
       <h3>Documents usually in your wallet</h3>
       <div id="docs" class="docs"></div>
       <h3>Cards <span class="sub">last 4 digits only. Never enter full numbers, CVV or PIN.</span></h3>

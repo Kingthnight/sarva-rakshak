@@ -131,6 +131,8 @@ function renderCase(s) {
     list("Reissue guides", s.reissue),
     list("Reminders", s.reminders),
     list("Replacements", s.replacements),
+    list("Phone", s.phone),
+    list("Messages", s.contacts),
     list("Card watch", s.cardAlerts),
     list("Emails", s.emails),
   ].join("");
@@ -199,6 +201,11 @@ function onEvent(e) {
     case "status": return logEvent(`ℹ️ ${e.message}`);
     case "card_alert": return addAlert(e);
     case "bank_call": return renderCall(e.call);
+    case "interrupted": return logEvent(`✋ You cut in, so Sarva will briefly finish: "${e.missed.slice(0, 90)}${e.missed.length > 90 ? "…" : ""}"`);
+    case "call_ended":
+      logEvent(`👋 Sarva is ending the call (${e.reason})`);
+      if (state.live) setTimeout(() => stopVoice().catch(() => {}), 6500);
+      return;
     case "guardrail": {
       const li = document.createElement("li");
       li.className = "act guard";
@@ -283,6 +290,10 @@ async function openSettings() {
   f.ecRelation.value = profile.emergencyContact?.relation || "";
   f.ecPhone.value = profile.emergencyContact?.phone || "";
   f.highValueInr.value = profile.guardrails?.highValueInr ?? 10000;
+  f.devModel.value = profile.device?.model || "";
+  f.devOs.value = profile.device?.os || "android";
+  f.devOperator.value = profile.device?.operator || "Jio";
+  f.devLast4.value = profile.device?.numberLast4 || "";
   f.cardWatch.checked = profile.guardrails?.cardWatch ?? true;
   const docs = new Set(profile.documents);
   $("docs").innerHTML = [...new Set([...DOC_OPTIONS, ...profile.documents])]
@@ -312,6 +323,7 @@ async function saveSettings(ev) {
     language: "en-IN",
     emergencyContact: { name: f.ecName.value.trim(), relation: f.ecRelation.value.trim(), phone: f.ecPhone.value.trim() },
     documents: [...$("docs").querySelectorAll("input:checked")].map((i) => i.value),
+    device: { model: f.devModel.value.trim(), os: f.devOs.value, operator: f.devOperator.value, numberLast4: f.devLast4.value.trim() },
     cards,
     guardrails: { highValueInr: Number(f.highValueInr.value) || 10000, cardWatch: f.cardWatch.checked },
   };

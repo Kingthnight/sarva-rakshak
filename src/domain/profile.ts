@@ -27,6 +27,14 @@ export const ProfileSchema = z.object({
   language: z.string().default("en-IN"),
   emergencyContact: z.object({ name: z.string().max(60), phone: Phone, relation: z.string().max(30) }).partial().default({}),
   documents: z.array(z.string().max(40)).max(20).default([]),
+  device: z
+    .object({
+      model: z.string().max(40).default(""),
+      os: z.enum(["android", "ios"]).default("android"),
+      operator: z.enum(["Jio", "Airtel", "Vi", "BSNL", "Other"]).default("Jio"),
+      numberLast4: z.string().regex(/^(\d{4})?$/, "last 4 digits only").default(""),
+    })
+    .default({ model: "", os: "android", operator: "Jio", numberLast4: "" }),
   cards: z.array(CardSchema).max(12),
   guardrails: z
     .object({
@@ -51,6 +59,7 @@ export function defaultProfile(email = ""): Profile {
     language: "en-IN",
     emergencyContact: { name: "", phone: "", relation: "" },
     documents: ["Driving licence", "Aadhaar", "PAN"],
+    device: { model: "Pixel 8", os: "android", operator: "Jio", numberLast4: "4210" },
     cards: [
       { id: "hdfc-cc-4821", bank: "HDFC", kind: "credit", network: "Visa", last4: "4821", nickname: "HDFC Regalia" },
       { id: "sbi-dc-1093", bank: "SBI", kind: "debit", network: "RuPay", last4: "1093", nickname: "SBI salary account" },

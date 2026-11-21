@@ -38,7 +38,25 @@ export function chunk(id: string, model: string, delta: Record<string, unknown>,
   };
 }
 
-export type SayFn = (sessionId: string, text: string, onText: (d: string) => void) => Promise<{ text: string }>;
+export interface SayMeta {
+  /** What Agora recorded as the assistant's last reply (may be cut short when the user interrupted). */
+  heard?: string;
+  /** Aborted when Agora closes the stream early, which usually means the user spoke over the agent. */
+  signal?: AbortSignal;
+}
+
+export type SayFn = (sessionId: string, text: string, onText: (d: string) => void, meta?: SayMeta) => Promise<{ text: string }>;
+
+export function lastAssistantText(messages: OpenAiMessage[] | undefined): string | undefined {
+  if (!Array.isArray(messages)) return undefined;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== "assistant") continue;
+    if (typeof m.content === "string") return m.content;
+    if (Array.isArray(m.content)) return m.content.filter((p) => p.type === "text").map((p) => p.text ?? "").join(" ");
+  }
+  return undefined;
+}
 
 /**
  * POST /llm/:sessionId/chat/completions. OpenAI-compatible (streaming or not), so
@@ -59,6 +77,9 @@ export function llmProxyHandler(secret: string, say: SayFn) {
       res.status(400).json({ error: { message: "no user message" } });
       return;
     }
+    const heard = lastAssistantText(body.messages);
+    if (process.env.DEBUG_LLM !== "0")
+      console.log(`[llm ${sessionId}] user="${text.slice(0, 80)}" history=${body.messages?.length ?? 0} lastAssistant=${heard ? `"${heard.slice(-60)}" (${heard.length} chars)` : "none"}`);
 
     if (body.stream === false) {
       const r = await say(sessionId, text, () => {});
@@ -78,16 +99,20 @@ export function llmProxyHandler(secret: string, say: SayFn) {
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders?.();
     let open = true;
+    let finished = false;
+    const aborter = new AbortController();
     res.on("close", () => {
       open = false;
+      if (!finished) aborter.abort(); // Agora hung up mid-reply: the user interrupted
     });
     const write = (obj: unknown) => {
       if (open) res.write(`data: ${JSON.stringify(obj)}\n\n`);
     };
     write(chunk(id, model, { role: "assistant", content: "" }));
     try {
-      await say(sessionId, text, (d) => write(chunk(id, model, { content: d })));
+      await say(sessionId, text, (d) => write(chunk(id, model, { content: d })), { heard, signal: aborter.signal });
     } finally {
+      finished = true;
       write(chunk(id, model, {}, "stop"));
       if (open) {
         res.write("data: [DONE]\n\n");

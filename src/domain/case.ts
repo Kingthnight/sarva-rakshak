@@ -72,7 +72,7 @@ export interface Replacement {
 export interface CaseFile {
   caseId: string;
   createdAt: string;
-  user: { name: string; email: string; phoneMasked: string; city: string; emergencyContact?: Profile["emergencyContact"]; documents: string[] };
+  user: { name: string; email: string; phoneMasked: string; city: string; emergencyContact?: Profile["emergencyContact"]; documents: string[]; device?: Profile["device"] };
   incident: { items: string[]; location?: string; lostAt?: string };
   cardActions: CardAction[];
   flaggedTransactions: FlaggedTransaction[];
@@ -85,6 +85,8 @@ export interface CaseFile {
   actionsNeeded: ActionNeeded[];
   cardAlerts: CardAlert[];
   replacements: Replacement[];
+  phoneActions: Array<{ action: string; reference?: string; detail: string; at: string }>;
+  contactMessages: Array<{ to: string; text: string; reference: string; at: string }>;
 }
 
 export function newCaseFile(opts: { caseId: string; email?: string; profile?: Profile; now?: Date }): CaseFile {
@@ -92,7 +94,7 @@ export function newCaseFile(opts: { caseId: string; email?: string; profile?: Pr
   return {
     caseId: opts.caseId,
     createdAt: (opts.now ?? new Date()).toISOString(),
-    user: { name: p.name, email: p.email || opts.email || "", phoneMasked: p.phone, city: p.city, emergencyContact: p.emergencyContact, documents: p.documents },
+    user: { name: p.name, email: p.email || opts.email || "", phoneMasked: p.phone, city: p.city, emergencyContact: p.emergencyContact, documents: p.documents, device: p.device },
     incident: { items: [] },
     cardActions: [],
     flaggedTransactions: [],
@@ -103,6 +105,8 @@ export function newCaseFile(opts: { caseId: string; email?: string; profile?: Pr
     actionsNeeded: [],
     cardAlerts: [],
     replacements: [],
+    phoneActions: [],
+    contactMessages: [],
   };
 }
 
@@ -122,5 +126,7 @@ export function summarise(c: CaseFile) {
     actionsNeeded: c.actionsNeeded.map((a) => ({ id: a.id, title: a.title, detail: a.detail, tel: a.tel, done: a.done })),
     cardAlerts: c.cardAlerts.map((a) => `${a.outcome === "declined" ? "Blocked" : "⚠ Went through"}: ₹${a.amountInr} at ${a.merchant} on ${a.bank} ••${a.last4}`),
     replacements: c.replacements.map((r) => `${r.bank} ••${r.last4} replacement ${r.requestId}, by ${r.expectedBy}`),
+    phone: c.phoneActions.map((p) => `${p.detail}${p.reference ? ` (ref ${p.reference})` : ""}`),
+    contacts: c.contactMessages.map((m) => `Messaged ${m.to} (ref ${m.reference})`),
   };
 }
