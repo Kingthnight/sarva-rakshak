@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sarva Rakshak</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="shield">🛡️</span>
+      <div>
+        <h1>Sarva Rakshak</h1>
+        <p>Lost your wallet or phone? Just talk. I'll secure everything.</p>
+      </div>
+    </div>
+    <div class="meta">
+      <span id="caseId" class="pill">case: …</span>
+      <span id="health" class="pill">checking…</span>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card call">
+      <div class="orb-wrap">
+        <button id="callBtn" class="orb" aria-label="Start voice session">
+          <span class="orb-icon">🎙️</span>
+          <span id="callLabel">Start emergency call</span>
+        </button>
+        <div id="voiceState" class="voice-state">Not connected</div>
+      </div>
+      <h2>Conversation</h2>
+      <div id="transcript" class="transcript" aria-live="polite">
+        <div class="hint">Try: <em>"I just lost my wallet at Majestic bus stand. It had my HDFC and SBI cards, my driving licence and Aadhaar."</em></div>
+      </div>
+      <form id="textForm" class="text-form">
+        <input id="textInput" placeholder="…or type here (text mode, no voice minutes)" autocomplete="off" />
+        <button type="submit">Send</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Recovery plan</h2>
+      <ol id="plan" class="plan"><li class="muted">The plan appears once Sarva understands the situation.</li></ol>
+      <h2>Approvals</h2>
+      <div id="approvals" class="approvals"><span class="muted">Sensitive actions wait for your "yes".</span></div>
+      <h2>Case file</h2>
+      <div id="caseSummary" class="case muted">Nothing yet.</div>
+    </section>
+
+    <section class="card activity-card">
+      <h2>Agent activity <span class="sub">MCP tool calls, live</span></h2>
+      <ul id="activity" class="activity"></ul>
+    </section>
+  </main>
+
+  <footer class="foot">Agora Conversational AI · Murf Falcon TTS · Claude · MCP. Bank and police systems are simulated in this prototype; maps and email are real.</footer>
+
+  <script src="/vendor/agora/AgoraRTC_N-production.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
