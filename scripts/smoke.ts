@@ -28,10 +28,11 @@ async function check(name: string, fn: () => Promise<string>) {
 await check("agora", async () => {
   const res = await fetch("https://api.agora.io/dev/v1/projects", { headers: { Authorization: basicAuth(cfg) } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = (await res.json()) as { projects: Array<{ vendor_key: string; name: string; sign_key?: string }> };
+  const body = (await res.json()) as { projects: Array<{ vendor_key: string; name: string }> };
   const p = body.projects.find((x) => x.vendor_key === cfg.agora.appId);
   if (!p) throw new Error("AGORA_APP_ID not found among your projects");
-  return `project "${p.name}" found; certificate ${p.sign_key ? "enabled" : "disabled (testing mode, no tokens needed)"}`;
+  // The REST API does not expose whether the App Certificate is enabled; tokens are issued when AGORA_APP_CERTIFICATE is set.
+  return `project "${p.name}" found; RTC tokens ${cfg.agora.appCertificate ? "ON (AGORA_APP_CERTIFICATE set)" : "OFF (set AGORA_APP_CERTIFICATE if the project has a certificate)"}`;
 });
 
 await check("murf", async () => {
